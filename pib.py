@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+from subprocess import run
+from tempfile import NamedTemporaryFile
 
 import yaml
 
@@ -81,10 +83,31 @@ spec:
 
 def ensure_requirements():
     """Make sure kubectl and minikube are available."""
+    uname = str(run(["uname"], stdout=PIPE, check=True).stdout.lower())
+    for path, url in zip(
+            [MINIKUBE, KUBECTL],
+            ["https://storage.googleapis.com/minikube/releases/"
+             "v0.13.1/minikube-{}-amd64",
+             "https://storage.googleapis.com/kubernetes-release/"
+             "release/v1.5.1/bin/{}/amd64/kubectl"]):
+        if not path.exists():
+            run(["curl", "--create-dirs", "-o", str(path), url.format(uname)])
+            path.chmod(0o755)
 
 
 def start_minikube():
     """Start minikube."""
+    run([str(MINIKUBE), "start"])
+
+
+def kubectl(params, configs):
+    """Run kubectl on the given configs."""
+    for config in configs:
+        config = config.format(params)
+        with NamedTemporaryFile(suffix="yaml") as f:
+            f.write(yaml.safe_dump(config))
+            f.close()
+            run([str(KUBECTL), "apply", "-f", f.name], check=True)
 
 
 def deploy(data):
@@ -103,6 +126,8 @@ def deploy(data):
 
 def main():
     """Start minikube and deploy current config."""
+    ensure_requirements()
+    start_minikube()
     stacks = Path("stacks")
     for stack in stacks.iterdir():
         data = yaml.safe_read(stack.read_text())
