@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from subprocess import run, PIPE
+from subprocess import run, PIPE, CalledProcessError
 from tempfile import NamedTemporaryFile
 from os.path import expanduser
+from time import sleep
 import sys
 
 import yaml
@@ -13,7 +14,7 @@ MINIKUBE = PIB_DIR / "minikube"
 KUBECTL = PIB_DIR / "kubectl"
 
 
-SERVICE = """"
+SERVICE = """\
 apiVersion: v1
 kind: Service
 metadata:
@@ -23,8 +24,8 @@ metadata:
 spec:
   type: {service_type}
   ports:
-  - port: {external_port}
-    targetPort: {internal_port}
+  - port: {port}
+    targetPort: {port}
     protocol: TCP
     name: {name}
   selector:
@@ -32,7 +33,7 @@ spec:
 """
 
 
-HTTP_DEPLOYMENT = """
+HTTP_DEPLOYMENT = """\
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -55,16 +56,15 @@ spec:
         livenessProbe:
           httpGet:
             path: /
-            port: "{port}"
+            port: {port}
         readinessProbe:
           httpGet:
             path: /
-            port: "{port}"
-        env: {env}
+            port: {port}
 """
 
 
-POSTGRES_DEPLOYMENT = """
+POSTGRES_DEPLOYMENT = """\
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -96,7 +96,7 @@ def ensure_requirements():
             ["https://storage.googleapis.com/minikube/releases/"
              "v0.13.1/minikube-{}-amd64",
              "https://storage.googleapis.com/kubernetes-release/"
-             "release/v1.5.1/bin/{}/amd64/kubectl"]):
+             "release/v1.4.0/bin/{}/amd64/kubectl"]):
         if not path.exists():
             run(["curl",
                  "--create-dirs",
@@ -108,16 +108,19 @@ def ensure_requirements():
 
 def start_minikube():
     """Start minikube."""
-    run([str(MINIKUBE), "start"])
-
+    try:
+        run([str(MINIKUBE), "status"], check=True)
+    except CalledProcessError:
+        run([str(MINIKUBE), "start"])
+        sleep(10)  # make sure it's really up
 
 def kubectl(params, configs):
     """Run kubectl on the given configs."""
     for config in configs:
-        config = config.format(params)
-        with NamedTemporaryFile(suffix="yaml") as f:
-            f.write(yaml.safe_dump(config))
-            f.close()
+        config = config.format(**params)
+        with NamedTemporaryFile("w", suffix=".yaml") as f:
+            f.write(config)
+            f.flush()
             run([str(KUBECTL), "apply", "-f", f.name], check=True)
 
 
@@ -127,6 +130,7 @@ def deploy(data):
         params = dict(name=service["name"])
         if service["type"] == "service":
             params["port"] = 80
+            params["image"] = service["image"]
             params["service_type"] = "NodePort"
             kubectl(params, [SERVICE, HTTP_DEPLOYMENT])
         elif service["type"] == "postgres":
@@ -141,9 +145,9 @@ def main():
     start_minikube()
     stacks = Path("stacks")
     for stack in stacks.iterdir():
-        data = yaml.safe_read(stack.read_text())
+        data = yaml.safe_load(stack.read_text())
         deploy(data)
-
+    run([str(MINIKUBE), "service", "list", "--namespace=default"])
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
