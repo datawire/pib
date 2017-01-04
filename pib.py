@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from subprocess import run
+from subprocess import run, PIPE
 from tempfile import NamedTemporaryFile
+from os.path import expanduser
 
 import yaml
+
+PIB_DIR = Path(expanduser("~")) / ".pib"
+MINIKUBE = PIB_DIR / "minikube"
+KUBECTL = PIB_DIR / "kubectl"
 
 
 SERVICE = """"
