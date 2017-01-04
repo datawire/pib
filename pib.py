@@ -4,6 +4,7 @@ from pathlib import Path
 from subprocess import run, PIPE
 from tempfile import NamedTemporaryFile
 from os.path import expanduser
+import sys
 
 import yaml
 
@@ -88,7 +89,8 @@ spec:
 
 def ensure_requirements():
     """Make sure kubectl and minikube are available."""
-    uname = str(run(["uname"], stdout=PIPE, check=True).stdout.lower())
+    uname = str(run(["uname"], stdout=PIPE, check=True).stdout.lower().strip(),
+                "utf-8")
     for path, url in zip(
             [MINIKUBE, KUBECTL],
             ["https://storage.googleapis.com/minikube/releases/"
@@ -96,7 +98,11 @@ def ensure_requirements():
              "https://storage.googleapis.com/kubernetes-release/"
              "release/v1.5.1/bin/{}/amd64/kubectl"]):
         if not path.exists():
-            run(["curl", "--create-dirs", "-o", str(path), url.format(uname)])
+            run(["curl",
+                 "--create-dirs",
+                 "--silent",
+                 "--output", str(path),
+                 url.format(uname)])
             path.chmod(0o755)
 
 
@@ -137,3 +143,16 @@ def main():
     for stack in stacks.iterdir():
         data = yaml.safe_read(stack.read_text())
         deploy(data)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("""\
+Usage: pib.py deploy
+       pib.py status
+""")
+        sys.exit(1)
+    if sys.argv[1] == "deploy":
+        main()
+    else:
+        raise SystemExit("Not implemented yet.")
