@@ -129,7 +129,7 @@ def deploy(data):
     for service in data:
         params = dict(name=service["name"])
         if service["type"] == "service":
-            params["port"] = 80
+            params["port"] = service.get("port", 80)
             params["image"] = service["image"]
             params["service_type"] = "NodePort"
             kubectl(params, [SERVICE, HTTP_DEPLOYMENT])
