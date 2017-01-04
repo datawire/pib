@@ -49,7 +49,7 @@ spec:
     spec:
       containers:
       - name: {name}
-        image: "{image}:latest"
+        image: "{image}:{tag}"
         imagePullPolicy: Always
         ports:
         - containerPort: {port}
@@ -124,7 +124,7 @@ def kubectl(params, configs):
             run([str(KUBECTL), "apply", "-f", f.name], check=True)
 
 
-def deploy(data):
+def deploy(data, tag_overrides):
     """Deploy current configuration to the minikube server."""
     for service in data:
         params = dict(name=service["name"])
@@ -132,6 +132,7 @@ def deploy(data):
             params["port"] = service.get("port", 80)
             params["image"] = service["image"]
             params["service_type"] = "NodePort"
+            params["tag"] = tag_overrides.get(service["name"], "latest")
             kubectl(params, [SERVICE, HTTP_DEPLOYMENT])
         elif service["type"] == "postgres":
             params["port"] = 5432
@@ -139,24 +140,25 @@ def deploy(data):
             kubectl(params, [SERVICE, POSTGRES_DEPLOYMENT])
 
 
-def main():
+def main(tag_overrides):
     """Start minikube and deploy current config."""
     ensure_requirements()
     start_minikube()
     stacks = Path("stacks")
     for stack in stacks.iterdir():
         data = yaml.safe_load(stack.read_text())
-        deploy(data)
+        deploy(data, tag_overrides)
     run([str(MINIKUBE), "service", "list", "--namespace=default"])
 
+
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print("""\
-Usage: pib.py deploy
+Usage: pib.py deploy [name=version ...]
        pib.py status
 """)
         sys.exit(1)
     if sys.argv[1] == "deploy":
-        main()
+        main(dict([s.split("=") for s in sys.argv[2:]]))
     else:
         raise SystemExit("Not implemented yet.")
