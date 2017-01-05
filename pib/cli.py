@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from subprocess import run, PIPE, CalledProcessError
+from subprocess import check_output, check_call, CalledProcessError
 from tempfile import NamedTemporaryFile
 from os.path import expanduser
 from time import sleep
@@ -93,8 +93,7 @@ spec:
 
 def run_result(command, **kwargs):
     """Return (stripped) command result as unicode string."""
-    return str(run(command, stdout=PIPE, check=True,
-                   **kwargs).stdout.strip(), "utf-8")
+    return str(check_output(command, **kwargs).strip(), "utf-8")
 
 
 def ensure_requirements():
@@ -107,20 +106,20 @@ def ensure_requirements():
              "https://storage.googleapis.com/kubernetes-release/"
              "release/v1.4.0/bin/{}/amd64/kubectl"]):
         if not path.exists():
-            run(["curl",
-                 "--create-dirs",
-                 "--silent",
-                 "--output", str(path),
-                 url.format(uname)])
+            check_call(["curl",
+                        "--create-dirs",
+                        "--silent",
+                        "--output", str(path),
+                        url.format(uname)])
             path.chmod(0o755)
 
 
 def start_minikube():
     """Start minikube."""
     try:
-        run([str(MINIKUBE), "status"], check=True)
+        check_call([str(MINIKUBE), "status"])
     except CalledProcessError:
-        run([str(MINIKUBE), "start"])
+        check_call([str(MINIKUBE), "start"])
         sleep(10)  # make sure it's really up
 
 
@@ -131,7 +130,7 @@ def kubectl(params, configs):
         with NamedTemporaryFile("w", suffix=".yaml") as f:
             f.write(config)
             f.flush()
-            run([str(KUBECTL), "apply", "-f", f.name], check=True)
+            check_call([str(KUBECTL), "apply", "-f", f.name])
 
 
 class ClusterConfig(object):
@@ -175,7 +174,7 @@ def deploy(cluster_config, tag_overrides):
     ensure_requirements()
     start_minikube()
     cluster_config.deploy(tag_overrides)
-    run([str(MINIKUBE), "service", "list", "--namespace=default"])
+    check_call([str(MINIKUBE), "service", "list", "--namespace=default"])
 
 
 def set_minikube_docker_env():
@@ -203,21 +202,21 @@ def watch(cluster_config, repos):
         tag_overrides = {}
         # 1. Rebuild Docker images inside Minikube Docker process:
         for app_name in repos:
-            repo = repos[app_name]
-            tag = run_result("git describe --tags --dirty --always --long",
-                             cwd=repo)
+            repo = expanduser(repos[app_name])
+            tag = run_result(["git", "describe", "--tags", "--dirty",
+                              "--always", "--long"], cwd=repo)
             tag_overrides[app_name] = tag
-            run(["docker", "build", str(repo / "Dockerfile"),
-                 "-t", "{}:{}".format(
-                     cluster_config.services[app_name]["image"], tag)],
-                check=True)
+            check_call(["docker", "build", repo,
+                        "-t", "{}:{}".format(
+                            cluster_config.services[app_name]["image"], tag)])
         # 2. Redeploy
         cluster_config.deploy(tag_overrides)
         # 3. Sleep a bit
-        sleep(1)
+        sleep(20)
 
 
-if __name__ == '__main__':
+def main():
+    """Main entry point."""
     if len(sys.argv) < 2:
         print("""\
 Usage: pib.py deploy [name=image-tag ...]
@@ -228,7 +227,7 @@ Usage: pib.py deploy [name=image-tag ...]
     cluster_config = ClusterConfig(Path("."))
     if sys.argv[1] == "deploy":
         deploy(cluster_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
-    if sys.argv[1] == "watch":
+    elif sys.argv[1] == "watch":
         watch(cluster_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
     else:
         raise SystemExit("Not implemented yet.")
