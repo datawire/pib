@@ -9,7 +9,8 @@ install: pip install tox-travis
 
 script:
   - tox
-  - python3 dist/pib --help
+  - python --version
+  - python dist/pib --help
 
 notifications:
   email: false
