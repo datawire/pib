@@ -1,5 +1,8 @@
 from setuptools import setup, find_packages
 
+import versioneer
+
+
 setup(
     name='pib',
     description='Pib: dev and prod application stacks on Kubernetes',
@@ -9,4 +12,6 @@ setup(
             'pib=pib.cli:main',
         ],
     },
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
 )

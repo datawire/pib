@@ -215,15 +215,21 @@ def watch(cluster_config, repos):
         sleep(20)
 
 
+USAGE = """\
+Usage: pib.py deploy [name=image-tag ...]
+       pib.py watch  [name=/path/to/repo ...]
+       pib.py --help
+"""
+
+
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("""\
-Usage: pib.py deploy [name=image-tag ...]
-       pib.py watch  [name=/path/to/repo ...]
-       pib.py status
-""")
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
+    if sys.argv[1] == "--help":
+        print(USAGE, file=sys.stderr)
+        sys.exit(0)
     cluster_config = ClusterConfig(Path("."))
     if sys.argv[1] == "deploy":
         deploy(cluster_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
