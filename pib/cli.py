@@ -216,9 +216,9 @@ def watch(cluster_config, repos):
 
 
 USAGE = """\
-Usage: pib.py deploy [name=image-tag ...]
-       pib.py watch  [name=/path/to/repo ...]
-       pib.py --help
+Usage: pib deploy [name=image-tag ...]
+       pib watch  [name=/path/to/repo ...]
+       pib --help
 """
 
 
