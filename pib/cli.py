@@ -133,23 +133,24 @@ def kubectl(params, configs):
             check_call([str(KUBECTL), "apply", "-f", f.name])
 
 
-class ClusterConfig(object):
-    """The configuration for the cluster."""
+class StackConfig(object):
+    """The configuration for the stack."""
 
-    def __init__(self, path_to_config_repo):
+    def __init__(self, path_to_repo):
         self.services = {}   # map service name to config dict
         self.databases = {}  # map database name to config dict
-        stacks = path_to_config_repo / "stacks"
-        for stack in stacks.iterdir():
-            data = yaml.safe_load(stack.read_text())
-            for service in data:
-                name = service["name"]
-                if service["type"] == "service":
-                    self.services[name] = service
-                elif service["type"] == "postgres":
-                    self.databases[name] = service
-                else:
-                    raise ValueError("Unknown type: " + service["type"])
+        stack = path_to_repo / "Pibstack.yaml"
+        with stack.open() as f:
+            data = yaml.safe_load(f.read())
+        self.name = data["main"]["name"]
+        for service in [data["main"]] + data["requires"]:
+            name = service["name"]
+            if service["type"] == "service":
+                self.services[name] = service
+            elif service["type"] == "postgres":
+                self.databases[name] = service
+            else:
+                raise ValueError("Unknown type: " + service["type"])
 
     def deploy(self, tag_overrides):
         """Deploy current configuration to the minikube server."""
@@ -169,11 +170,11 @@ class ClusterConfig(object):
             kubectl(params, [SERVICE, POSTGRES_DEPLOYMENT])
 
 
-def deploy(cluster_config, tag_overrides):
+def deploy(stack_config, tag_overrides):
     """Start minikube and deploy current config."""
     ensure_requirements()
     start_minikube()
-    cluster_config.deploy(tag_overrides)
+    stack_config.deploy(tag_overrides)
     check_call([str(MINIKUBE), "service", "list", "--namespace=default"])
 
 
@@ -190,7 +191,7 @@ def set_minikube_docker_env():
             os.environ[key] = value
 
 
-def watch(cluster_config, repos):
+def watch(stack_config):
     """
     As code changes, rebuild Docker images for given repos in minikube Docker,
     then redeploy.
@@ -199,26 +200,27 @@ def watch(cluster_config, repos):
     start_minikube()
     set_minikube_docker_env()
     while True:
+        app_name = stack_config.name
         tag_overrides = {}
         # 1. Rebuild Docker images inside Minikube Docker process:
-        for app_name in repos:
-            repo = expanduser(repos[app_name])
-            tag = run_result(["git", "describe", "--tags", "--dirty",
-                              "--always", "--long"], cwd=repo)
-            tag_overrides[app_name] = tag
-            check_call(["docker", "build", repo,
-                        "-t", "{}:{}".format(
-                            cluster_config.services[app_name]["image"], tag)])
+        tag = run_result(["git", "describe", "--tags", "--dirty",
+                          "--always", "--long"])
+        tag_overrides[app_name] = tag
+        check_call(["docker", "build", ".",
+                    "-t", "{}:{}".format(
+                        stack_config.services[app_name]["image"], tag)])
         # 2. Redeploy
-        cluster_config.deploy(tag_overrides)
+        stack_config.deploy(tag_overrides)
         # 3. Sleep a bit
         sleep(20)
 
 
 USAGE = """\
 Usage: pib deploy [name=image-tag ...]
-       pib watch  [name=/path/to/repo ...]
+       pib watch
        pib --help
+
+Make sure you are in same directory as a Pibstack.yaml file.
 """
 
 
@@ -230,10 +232,10 @@ def main():
     if sys.argv[1] == "--help":
         print(USAGE, file=sys.stderr)
         sys.exit(0)
-    cluster_config = ClusterConfig(Path("."))
+    stack_config = StackConfig(Path("."))
     if sys.argv[1] == "deploy":
-        deploy(cluster_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
+        deploy(stack_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
     elif sys.argv[1] == "watch":
-        watch(cluster_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
+        watch(stack_config)
     else:
         raise SystemExit("Not implemented yet.")
