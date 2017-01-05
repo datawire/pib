@@ -5,6 +5,7 @@ from subprocess import run, PIPE, CalledProcessError
 from tempfile import NamedTemporaryFile
 from os.path import expanduser
 from time import sleep
+from random import random
 import sys
 
 import yaml
@@ -45,12 +46,14 @@ spec:
   template:
     metadata:
       labels:
+        # We put random value in to force redeploy:
+        random: "{random}"
         name: "{name}"
     spec:
       containers:
       - name: {name}
         image: "{image}:{tag}"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: {port}
         livenessProbe:
@@ -114,6 +117,7 @@ def start_minikube():
         run([str(MINIKUBE), "start"])
         sleep(10)  # make sure it's really up
 
+
 def kubectl(params, configs):
     """Run kubectl on the given configs."""
     for config in configs:
@@ -127,7 +131,8 @@ def kubectl(params, configs):
 def deploy(data, tag_overrides):
     """Deploy current configuration to the minikube server."""
     for service in data:
-        params = dict(name=service["name"])
+        params = dict(name=service["name"],
+                      random=random())
         if service["type"] == "service":
             params["port"] = service.get("port", 80)
             params["image"] = service["image"]
