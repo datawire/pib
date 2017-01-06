@@ -24,8 +24,11 @@ Now in your service's git repository you can run:
 $ pib watch &
 ```
 
-This will run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
-And as you change your code the containers will be updated with the latest version of the code.
+This will:
+
+1. Automatically build a Docker image of your application using your `Dockerfile`.
+2. Run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
+3. As you change your code the containers will be updated with the latest version of the code.
 
 Notice that the configuration is high-level: unlike say a Docker Compose file, it doesn't say *how* you run PostgreSQL.
 That means you can use the same configuration file in production, but run dependencies like PostgreSQL some other way.
