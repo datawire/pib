@@ -59,6 +59,7 @@ Production use is a work-in-progress by Datawire Inc: [get in touch](https://www
 To build and install:
 
 ```console
+$ pip install tox
 $ tox -e py34  # or py35 if you have Python 3.5
 $ cp dist/pib $HOME/bin  # or some other place in $PATH
 ```
