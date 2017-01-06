@@ -102,9 +102,9 @@ def ensure_requirements():
     for path, url in zip(
             [MINIKUBE, KUBECTL],
             ["https://storage.googleapis.com/minikube/releases/"
-             "v0.13.1/minikube-{}-amd64",
+             "v0.14.0/minikube-{}-amd64",
              "https://storage.googleapis.com/kubernetes-release/"
-             "release/v1.4.0/bin/{}/amd64/kubectl"]):
+             "release/v1.5.1/bin/{}/amd64/kubectl"]):
         if not path.exists():
             check_call(["curl",
                         "--create-dirs",
