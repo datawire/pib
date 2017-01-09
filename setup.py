@@ -10,6 +10,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pib=pib.cli:main',
+            'fabformer=fabformer.cli:cli'
         ],
     },
     version=versioneer.get_version(),
