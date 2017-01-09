@@ -113,9 +113,13 @@ def ensure_requirements():
 
 def start_minikube():
     """Start minikube."""
+    running = True
     try:
-        check_call([str(MINIKUBE), "status"])
+        result = run_result([str(MINIKUBE), "status"])
+        running = "Running" in result
     except CalledProcessError:
+        running = False
+    if not running:
         check_call([str(MINIKUBE), "start"])
         sleep(10)  # make sure it's really up
 
