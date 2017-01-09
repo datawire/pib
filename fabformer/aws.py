@@ -38,6 +38,7 @@ def create_fab_state_store_bucket_name(ctx):
 
     """Creates an S3 bucket name that is likely to be globally unique"""
     bucket_name = 'fabformer-{0}'.format(ctx.account_id)
+    bucket_name  # do something with it
 
 
 def ensure_fab_state_store(name, engine="s3"):
@@ -48,9 +49,6 @@ def ensure_fab_state_store(name, engine="s3"):
     engine = str(engine).lower()
     if engine not in usable_engines:
         raise ValueError('Invalid state storage engine (chosen: {}, usable: {})', engine, usable_engines)
-
-
-
     return
 
 

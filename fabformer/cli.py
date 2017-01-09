@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from . import __version__
-from .aws import *
-from .util import *
+from .aws import init_aws_ctx
+from .util import load_config
 from pathlib import Path
 import click
 import os
@@ -92,4 +92,4 @@ def apply():
 
 
 if __name__ == '__main__':
-    cli(prog_name='fabformer')
+    cli(prog_name='fabformer')  # pylint: disable=E1123
