@@ -12,6 +12,9 @@ setup(
             'pib=pib.cli:main',
         ],
     },
+    package_data={
+        "pib": ["*.yaml"],
+    },
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
 )

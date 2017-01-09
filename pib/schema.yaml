@@ -1,26 +1,6 @@
 $schema: http://json-schema.org/draft-04/schema#
 id: https://github.com/datawire/pib/
 definitions:
-  stack:
-    title: "Top-level schema for Pibstack.yaml"
-    type: object
-    properties:
-      version:
-        type: string
-        enum: ["1.0"]
-      service:
-        $ref: "#/definitions/service"
-      infrastructure:
-        type: array
-        items:
-          $ref: "#/definitions/infrastructure_service"
-      dependencies:
-        type: array
-        items:
-          $ref: "#/definitions/dependency"
-    required: ["version", "service"]
-    additionalProperties: false
-
   service:
     title: "The main service being run by the Pibtack.yaml."
     type: object
@@ -31,13 +11,16 @@ definitions:
       image:
         title: "The container image without a tag, e.g. example/myapp"
         type: string
+      port:
+        title: "The port where the service is exposed."
+        type: integer
       expose:
         title: "How to expose the service to external world"
         type: object
         properties:
           http_path:
             type: string
-        required: ["path"]
+        required: ["http_path"]
         additionalProperties: false
     required: ["name", "image"]
     additionalProperties: false
@@ -49,7 +32,7 @@ definitions:
         title: "A database of some sort."
         properties:
           name:
-            $ref: #/definitions/name"
+            $ref: "#/definitions/name"
           type:
             type: string
             enum: ["postgres"]
@@ -85,3 +68,22 @@ definitions:
   name:
     type: string
     pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
+
+title: "Top-level schema for Pibstack.yaml"
+type: object
+properties:
+  version:
+    type: string
+    enum: ["1.0"]
+  service:
+    $ref: "#/definitions/service"
+  infrastructure:
+    type: array
+    items:
+      $ref: "#/definitions/infrastructure_service"
+  dependencies:
+    type: array
+    items:
+      $ref: "#/definitions/dependency"
+required: ["version", "service"]
+additionalProperties: false

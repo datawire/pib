@@ -10,6 +10,9 @@ import sys
 
 import yaml
 
+from .schema import validate, ValidationError
+
+
 PIB_DIR = Path(expanduser("~")) / ".pib"
 MINIKUBE = PIB_DIR / "minikube"
 KUBECTL = PIB_DIR / "kubectl"
@@ -143,10 +146,17 @@ class StackConfig(object):
         stack = path_to_repo / "Pibstack.yaml"
         with stack.open() as f:
             data = yaml.safe_load(f.read())
-        self.name = data["main"]["name"]
-        for service in [data["main"]] + data["requires"]:
+        try:
+            validate(data)
+        except ValidationError as e:
+            print("Error loading Pibkstack.yaml:", file=sys.stderr)
+            for error in e.errors:
+                print("---\n" + error, file=sys.stderr)
+            sys.exit(1)
+        self.name = data["service"]["name"]
+        for service in [data["service"]] + data["infrastructure"]:
             name = service["name"]
-            if service["type"] == "service":
+            if service.get("type", "container") == "container":
                 self.services[name] = service
             elif service["type"] == "postgres":
                 self.databases[name] = service
@@ -157,7 +167,7 @@ class StackConfig(object):
         """Deploy current configuration to the minikube server."""
         for name, service in self.services.items():
             params = dict(name=name)
-            params["port"] = service.get("port", 80)
+            params["port"] = service["port"]
             params["image"] = service["image"]
             params["service_type"] = "NodePort"
             params["tag"] = tag_overrides.get(service["name"], "latest")
