@@ -1,0 +1,87 @@
+$schema: http://json-schema.org/draft-04/schema#
+id: https://github.com/datawire/pib/
+definitions:
+  stack:
+    title: "Top-level schema for Pibstack.yaml"
+    type: object
+    properties:
+      version:
+        type: string
+        enum: ["1.0"]
+      service:
+        $ref: "#/definitions/service"
+      infrastructure:
+        type: array
+        items:
+          $ref: "#/definitions/infrastructure_service"
+      dependencies:
+        type: array
+        items:
+          $ref: "#/definitions/dependency"
+    required: ["version", "service"]
+    additionalProperties: false
+
+  service:
+    title: "The main service being run by the Pibtack.yaml."
+    type: object
+    properties:
+      name:
+        title: "The name of the service"
+        $ref: "#/definitions/name"
+      image:
+        title: "The container image without a tag, e.g. example/myapp"
+        type: string
+      expose:
+        title: "How to expose the service to external world"
+        type: object
+        properties:
+          http_path:
+            type: string
+        required: ["path"]
+        additionalProperties: false
+    required: ["name", "image"]
+    additionalProperties: false
+
+  infrastructure_service:
+    title: "Internal infrastructure required for the main service."
+    oneOf:
+      - type: object
+        title: "A database of some sort."
+        properties:
+          name:
+            $ref: #/definitions/name"
+          type:
+            type: string
+            enum: ["postgres"]
+        required: ["name", "type"]
+        additionalProperties: false
+      - type: object
+        title: "A container that needs to be running, exposed with given name."
+        properties:
+          type:
+            type: string
+            enum: ["container"]
+          name:
+            title: "The name of the service"
+            $ref: "#/definitions/name"
+          image:
+            title: "The container image without a tag, e.g. example/myapp"
+            type: string
+        required: ["name", "image", "type"]
+        additionalProperties: false
+
+  dependency:
+    title: "Another Pibstack.yaml that a stack depends on."
+    type: object
+    properties:
+      name:
+        $ref: "#/definitions/name"
+      repository:
+        title: "The git repository where the dependency's Pibstack.yaml can be found"
+        type: string
+    required: ["name", "repository"]
+    additionalProperties: false
+
+  name:
+    type: string
+    pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
