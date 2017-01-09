@@ -45,7 +45,6 @@ class Prepare:
         pass
 
 
-
 class Fabformer:
 
     def __init__(self, config):
