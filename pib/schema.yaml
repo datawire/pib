@@ -27,7 +27,7 @@ definitions:
     additionalProperties: false
 
   infrastructure_service:
-    title: "Internal infrastructure required for the main service."
+    title: " infrastructure required for the main service."
     oneOf:
       - type: object
         title: "A database of some sort."
@@ -78,7 +78,7 @@ properties:
     enum: ["1.0"]
   service:
     $ref: "#/definitions/service"
-  infrastructure:
+  also_build:
     type: array
     items:
       $ref: "#/definitions/infrastructure_service"
