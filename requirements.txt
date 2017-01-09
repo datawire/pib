@@ -1,2 +1,4 @@
-pyyaml
+boto3
+click
 jsonschema
+pyyaml
