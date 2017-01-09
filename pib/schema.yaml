@@ -14,14 +14,15 @@ definitions:
       port:
         title: "The port where the service is exposed."
         type: integer
-      expose:
-        title: "How to expose the service to external world"
-        type: object
-        properties:
-          http_path:
-            type: string
-        required: ["http_path"]
-        additionalProperties: false
+      # Disabled for now until we implement it:
+      #expose:
+      #  title: "How to expose the service to external world"
+      #  type: object
+      #  properties:
+      #    http_path:
+      #      type: string
+      #  required: ["http_path"]
+      #  additionalProperties: false
     required: ["name", "image"]
     additionalProperties: false
 
@@ -81,9 +82,10 @@ properties:
     type: array
     items:
       $ref: "#/definitions/infrastructure_service"
-  dependencies:
-    type: array
-    items:
-      $ref: "#/definitions/dependency"
+  # Disabled for now since not yet implemented:
+  #dependencies:
+  #  type: array
+  #  items:
+  #    $ref: "#/definitions/dependency"
 required: ["version", "service"]
 additionalProperties: false
