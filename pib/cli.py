@@ -4,8 +4,7 @@ from pathlib import Path
 from subprocess import check_output, check_call, CalledProcessError
 from tempfile import NamedTemporaryFile
 from os.path import expanduser
-from time import sleep
-from random import random
+from time import sleep, time
 import os
 import sys
 
@@ -47,8 +46,6 @@ spec:
   template:
     metadata:
       labels:
-        # We put random value in to force redeploy:
-        random: "{random}"
         name: "{name}"
     spec:
       containers:
@@ -155,16 +152,14 @@ class StackConfig(object):
     def deploy(self, tag_overrides):
         """Deploy current configuration to the minikube server."""
         for name, service in self.services.items():
-            params = dict(name=name,
-                          random=random())
+            params = dict(name=name)
             params["port"] = service.get("port", 80)
             params["image"] = service["image"]
             params["service_type"] = "NodePort"
             params["tag"] = tag_overrides.get(service["name"], "latest")
             kubectl(params, [SERVICE, HTTP_DEPLOYMENT])
         for name, service in self.databases.items():
-            params = dict(name=name,
-                          random=random())
+            params = dict(name=name)
             params["port"] = 5432
             params["service_type"] = "ClusterIP"
             kubectl(params, [SERVICE, POSTGRES_DEPLOYMENT])
@@ -204,7 +199,7 @@ def watch(stack_config):
         tag_overrides = {}
         # 1. Rebuild Docker images inside Minikube Docker process:
         tag = run_result(["git", "describe", "--tags", "--dirty",
-                          "--always", "--long"])
+                          "--always", "--long"]) + "-" + str(time())
         tag_overrides[app_name] = tag
         check_call(["docker", "build", ".",
                     "-t", "{}:{}".format(
