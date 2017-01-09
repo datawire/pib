@@ -1,5 +1,7 @@
 # Pib
 
+Pib lets you develop services as systems, develop locally quickly, and be confident they will run the same way in production while still letting you customize the production setup appropriately.
+
 ## Quickstart
 
 Let's say you have a repository with your web service.
@@ -63,5 +65,7 @@ $ pip install tox
 $ tox -e py34  # or py35 if you have Python 3.5
 $ cp dist/pib $HOME/bin  # or some other place in $PATH
 ```
+
+`pib` will install `minikube` and `kubectl` when it first runs, you don't need to install them yourself.
 
 TODO: better installation instructions.
