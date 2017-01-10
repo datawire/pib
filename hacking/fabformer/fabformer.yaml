@@ -1,0 +1,24 @@
+---
+# file: hacking/fabformer/fabformer.yaml
+#
+# This is a hypothetical fabformer config
+
+dns:
+  domain: k8s.k736.net
+
+provider:
+  region: us-east-1
+
+fabrics:
+  data:
+    source: template:datawire/fabric-modules//vpc
+    environment: prod
+    config:
+      nat_enabled: false
+
+  prod:
+    source: generate:kops-kubernetes-v1.4
+    environment: prod
+    config: {}
+    links:
+    - data

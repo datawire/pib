@@ -1,3 +1,6 @@
+# --- Hacking Directory ---
+hacking/fabformer/*.json
+
 # --- IntelliJ IDEA ---
 .idea
 

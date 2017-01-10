@@ -18,9 +18,9 @@ def cli():
     """
 
 
-@cli.command('info')
-@click.argument('f', type=click.Path(exists=True))
-def info(fabformer_config):
+# TODO: This goes away eventually.
+@cli.command('debug', help='Print information from the current fabformer repo')
+def info():
     click.echo('AWS Account ID: {}'.format(aws.account_id))
 
 
@@ -46,44 +46,16 @@ def init():
     click.echo("Run:\n\tgit add fabformer.yaml && git commit -m 'fabformer: initialized basic config'\n")
 
 
-@cli.command('generate', help='Generate the underlying configuration used to deploy')
+@cli.command('generate', help='Generate raw configs')
 def generate():
     cfg = load_config(Path(os.getcwd()) / 'fabformer.yaml')
     if not cfg:
         click.echo('Fabformer is not initialized!')
         return
 
-    tf_dir = Path(os.getcwd()) / 'terraform'
-    if not tf_dir.exists():
-        tf_dir.mkdir()
-
-    tf_vars = {
-        'fabric_region': cfg.get('provider').get('region'),
-        'fabric_domain': cfg.get('dns').get('domain')
-    }
-
-    with (Path(os.getcwd()) / 'terraform/terraform.tfvars.json').open('w+') as f:
-        import json
-        json.dump(tf_vars, f)
-
-    tf = {
-        'variable': {
-            'fabric_region': {'default': 'us-east-1'},
-            'fabric_domain': {}
-        },
-
-        'provider': {
-            'aws': {'region': '${var.fabric_region}'}
-        },
-
-        'module': {
-            'basic': {'source': 'github.com/datawire/fabric-modules//basic', 'domain': '${var.fabric_domain}'}
-        }
-    }
-
-    with (Path(os.getcwd()) / 'terraform/main.tf.json').open('w+') as f:
-        import json
-        json.dump(tf, f, indent=4, separators=(',', ': '))
+    from .fabformer import Generator
+    gen = Generator(cfg.get('dns').get('domain'), cfg.get('fabrics', {}))
+    gen.generate()
 
 
 @cli.command('apply', help='Apply fabric configuration')
