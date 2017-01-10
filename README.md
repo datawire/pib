@@ -70,14 +70,24 @@ $ cp dist/pib $HOME/bin  # or some other place in $PATH
 
 TODO: better installation instructions.
 
-## Developer Setup
+## Developer Information
 
-This is the super painless way to get started hacking.
+### Hacking Setup
+
+This is the super painless way to get started hacking in a virtualenv configured for development.
 
 ```bash
 make venv
 source venv/bin/activate
 pip install -e .
+```
+
+### Running Tests
+
+Be a good developer and run tests before committing :)
+
+```bash
+tox -e py35 # or py34 if you're working in python 3,4 land.
 ```
 
 ## License
