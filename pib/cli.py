@@ -2,17 +2,17 @@
 
 from pathlib import Path
 from time import sleep
-# import os
-import sys
+import os
 
-# import click
+import click
 
 from .local import RunLocal
 from .stack import StackConfig
+from . import __version__
 
 # Pacify Click:
-# if os.environ.get("LANG", None) is None:
-#    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
+if os.environ.get("LANG", None) is None:
+    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
 
 
 def start():
@@ -36,7 +36,8 @@ def redeploy(run_local, stack_config):
 
 def print_service_url(run_local, stack_config):
     """Print the service URL."""
-    print("Service URL: {}".format(run_local.get_service_url(stack_config)))
+    click.echo("Service URL: {}".format(
+        run_local.get_service_url(stack_config)))
 
 
 def watch(run_local, stack_config):
@@ -51,31 +52,24 @@ def watch(run_local, stack_config):
         redeploy(run_local, stack_config)
 
 
-USAGE = """\
-Usage: pib deploy
-       pib watch
-       pib --help
-
-Make sure you are in same directory as a Pibstack.yaml file.
-"""
+@click.group()
+@click.version_option(version=__version__)
+def cli():
+    """pib: run a Pibstack.yaml file locally."""
 
 
-def main():
-    """Main entry point."""
-    if len(sys.argv) < 2:
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
-    if sys.argv[1] == "--help":
-        print(USAGE, file=sys.stderr)
-        sys.exit(0)
+@cli.command("deploy", help="Deploy current Pibstack.yaml.")
+def cli_deploy():
     stack_config = StackConfig(Path("."))
     run_local = start()
-    if sys.argv[1] == "deploy":
-        redeploy(run_local, stack_config)
-        print_service_url(run_local, stack_config)
-    elif sys.argv[1] == "watch":
-        redeploy(run_local, stack_config)
-        print_service_url(run_local, stack_config)
-        watch(run_local, stack_config)
-    else:
-        raise SystemExit("Not implemented yet.")
+    redeploy(run_local, stack_config)
+    print_service_url(run_local, stack_config)
+
+
+@cli.command("watch", help="Continuously deploy current Pibstack.yaml.")
+def cli_watch():
+    stack_config = StackConfig(Path("."))
+    run_local = start()
+    redeploy(run_local, stack_config)
+    print_service_url(run_local, stack_config)
+    watch(run_local, stack_config)
