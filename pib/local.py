@@ -102,7 +102,7 @@ class RunLocal(object):
         self.logfile.write("Running: {}".format(args))
         check_call(*args, stdout=self.logfile, **kwargs)
 
-    def ensure_requirements():
+    def ensure_requirements(self):
         """Make sure kubectl and minikube are available."""
         uname = run_result("uname").lower()
         for path, url in zip(
@@ -131,7 +131,7 @@ class RunLocal(object):
             self._check_call([str(MINIKUBE), "start"])
             sleep(10)  # make sure it's really up
 
-    def kubectl(self, params, configs):
+    def _kubectl_apply(self, params, configs):
         """Run kubectl on the given configs."""
         for config in configs:
             config = config.format(**params)
@@ -164,12 +164,12 @@ class RunLocal(object):
             params["image"] = service["image"]
             params["service_type"] = "NodePort"
             params["tag"] = tag_overrides.get(service["name"], "latest")
-            self._kubectl(params, [SERVICE, HTTP_DEPLOYMENT])
+            self._kubectl_apply(params, [SERVICE, HTTP_DEPLOYMENT])
         for name, service in stack_config.databases.items():
             params = dict(name=name)
             params["port"] = 5432
             params["service_type"] = "ClusterIP"
-            self._kubectl(params, [SERVICE, POSTGRES_DEPLOYMENT])
+            self._kubectl_apply(params, [SERVICE, POSTGRES_DEPLOYMENT])
 
     def get_service_urls(self):
         """Return service URLs table as string."""
