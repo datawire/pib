@@ -63,13 +63,12 @@ def watch(run_local, stack_config):
                                                     dir_okay=False),
               default="pib.log",
               help=("File where logs from running deployment commands will " +
-                    "be written. Defaults to 'pib.log'. " +
-                    "'-' indicates standard out."))
+                    "be written. '-' indicates standard out. Default: pib.log"))
 @click.option("--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
                                                      exists=True),
               default=".",
-              help=("Directory where Pibstack.yaml and Dockerfile can be" +
-                    "found. By default '.'"))
+              help=("Directory where Pibstack.yaml and Dockerfile can be " +
+                    "found. Default: ."))
 @click.pass_context
 def cli(ctx, logfile, directory):
     """pib: run a Pibstack.yaml file locally."""
