@@ -69,5 +69,14 @@ pib-local run wickedcool
 
 ### Deploy the WickedCool application
 
+## Mechanical Stuff
 
+This section is just loosely documenting some mechanical challenges and solutions we discussed yesterday
 
+### Pib creates AWS infrastructure, but how do we expose that infrastructure to Kubernetes-run containers?
+
+Pib via Terraform goes off and creates things like RDS instances. Information such as the RDS URL, username and password need to be provided to things running on the cluster to be useful.
+
+Terraform stores state information in S3. The best way to handle this then is to have a small service that runs on the Kubernetes cluster which reads the Terraform state and then injects it into running services as a Kubernetes ConfigMap or Secret (an RDS URL probably should also be injected as an ExternalService).
+
+Accessing the Terraform state in S3 is trivial because the Kubernetes nodes should have the necessary IAM config to just read with authorized access. 
