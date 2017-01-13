@@ -22,6 +22,7 @@ def deploy(stack_config, tag_overrides):
         run_local.ensure_requirements()
         run_local.start_minikube()
         run_local.deploy(stack_config, tag_overrides)
+        print(run_local.get_service_urls())
 
 
 def watch(stack_config):
@@ -34,10 +35,10 @@ def watch(stack_config):
         run_local.ensure_requirements()
         run_local.start_minikube()
         run_local.set_minikube_docker_env()
-    while True:
-        tag_overrides = run_local.rebuild_docker_image(stack_config)
-        stack_config.deploy(tag_overrides)
-        sleep(20)
+        while True:
+            tag_overrides = run_local.rebuild_docker_image(stack_config)
+            run_local.deploy(stack_config, tag_overrides)
+            sleep(20)
 
 
 USAGE = """\
