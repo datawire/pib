@@ -22,7 +22,7 @@ def deploy(stack_config, tag_overrides):
         run_local.ensure_requirements()
         run_local.start_minikube()
         run_local.deploy(stack_config, tag_overrides)
-        print(run_local.get_service_urls())
+        print("Service URL: {}".format(run_local.get_service_url(stack_config)))
 
 
 def watch(stack_config):
@@ -35,6 +35,7 @@ def watch(stack_config):
         run_local.ensure_requirements()
         run_local.start_minikube()
         run_local.set_minikube_docker_env()
+        print("Service URL: {}".format(run_local.get_service_url(stack_config)))
         while True:
             tag_overrides = run_local.rebuild_docker_image(stack_config)
             run_local.deploy(stack_config, tag_overrides)

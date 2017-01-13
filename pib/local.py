@@ -171,10 +171,10 @@ class RunLocal(object):
             params["service_type"] = "ClusterIP"
             self._kubectl_apply(params, [SERVICE, POSTGRES_DEPLOYMENT])
 
-    def get_service_urls(self):
-        """Return service URLs table as string."""
+    def get_service_url(self, stack_config):
+        """Return service URL as string."""
         return run_result(
-            [str(MINIKUBE), "service", "list", "--namespace=default"])
+            [str(MINIKUBE), "service", "--url", stack_config.name])
 
     def set_minikube_docker_env(self):
         """Use minikube's Docker."""
