@@ -65,7 +65,7 @@ def watch(run_local, stack_config):
               help=("File where logs from running deployment commands will " +
                     "be written. '-' indicates standard out. Default: pib.log"))
 @click.option("--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
-                                                     exists=True),
+                                                      exists=True),
               default=".",
               help=("Directory where Pibstack.yaml and Dockerfile can be " +
                     "found. Default: ."))
@@ -96,4 +96,4 @@ def cli_watch(ctx):
 
 
 def main():
-    cli(obj={})
+    cli(obj={})  # pylint: disable=E1120,E1123
