@@ -13,6 +13,21 @@ MINIKUBE = PIB_DIR / "minikube"
 KUBECTL = PIB_DIR / "kubectl"
 
 
+INGRESS = """\
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {name}-ingress
+spec:
+  rules:
+  - http:
+      paths:
+      - path: {path}
+        backend:
+          serviceName: {name}
+          servicePort: {port}
+"""
+
 SERVICE = """\
 apiVersion: v1
 kind: Service
@@ -26,7 +41,6 @@ spec:
   - port: {port}
     targetPort: {port}
     protocol: TCP
-    name: {name}
   selector:
     name: {name}
 """
@@ -52,14 +66,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: {port}
-        livenessProbe:
-          httpGet:
-            path: /
-            port: {port}
-        readinessProbe:
-          httpGet:
-            path: /
-            port: {port}
 """
 
 
@@ -129,6 +135,7 @@ class RunLocal(object):
             running = False
         if not running:
             self._check_call([str(MINIKUBE), "start"])
+            self._check_call([str(MINIKUBE), "addons", "enable", "ingress"])
             sleep(10)  # make sure it's really up
 
     def _kubectl_apply(self, params, configs):
@@ -168,6 +175,10 @@ class RunLocal(object):
             params["service_type"] = "NodePort"
             params["tag"] = tag_overrides.get(service["name"], "latest")
             self._kubectl_apply(params, [SERVICE, HTTP_DEPLOYMENT])
+            # XXX what about removal of path
+            if "path" in service:
+                params["path"] = service["path"]
+                self._kubectl_apply(params, [INGRESS])
         for name, service in stack_config.databases.items():
             params = dict(name=name)
             params["port"] = 5432
