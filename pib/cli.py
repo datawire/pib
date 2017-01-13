@@ -45,6 +45,8 @@ def watch(run_local, stack_config):
     then redeploy.
     """
     while True:
+        # Kubernetes apply -f takes 20 seconds or so. If we were to redeploy
+        # more often than that we'd get an infinite queue.
         sleep(20)
         redeploy(run_local, stack_config)
 
