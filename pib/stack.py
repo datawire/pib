@@ -9,6 +9,8 @@ class StackConfig(object):
     def __init__(self, path_to_repo):
         self.services = {}   # map service name to config dict
         self.databases = {}  # map database name to config dict
+        self.path_to_repo = path_to_repo
+
         stack = path_to_repo / "Pibstack.yaml"
         with stack.open() as f:
             data = yaml.safe_load(f.read())

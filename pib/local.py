@@ -40,7 +40,7 @@ metadata:
   labels:
     name: "{name}"
 spec:
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
@@ -148,10 +148,13 @@ class RunLocal(object):
         app_name = stack_config.name
         tag_overrides = {}
         # 1. Rebuild Docker images inside Minikube Docker process:
-        tag = run_result(["git", "describe", "--tags", "--dirty",
-                          "--always", "--long"]) + "-" + str(time())
+        tag = run_result(
+            ["git", "describe", "--tags", "--dirty",
+             "--always", "--long"],
+            cwd=str(stack_config.path_to_repo)
+        ) + "-" + str(time())
         tag_overrides[app_name] = tag
-        self._check_call(["docker", "build", ".",
+        self._check_call(["docker", "build", str(stack_config.path_to_repo),
                           "-t", "{}:{}".format(
                               stack_config.services[app_name]["image"], tag)])
         return tag_overrides
@@ -171,10 +174,10 @@ class RunLocal(object):
             params["service_type"] = "ClusterIP"
             self._kubectl_apply(params, [SERVICE, POSTGRES_DEPLOYMENT])
 
-    def get_service_urls(self):
-        """Return service URLs table as string."""
+    def get_service_url(self, stack_config):
+        """Return service URL as string."""
         return run_result(
-            [str(MINIKUBE), "service", "list", "--namespace=default"])
+            [str(MINIKUBE), "service", "--url", stack_config.name])
 
     def set_minikube_docker_env(self):
         """Use minikube's Docker."""

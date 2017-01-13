@@ -2,66 +2,98 @@
 
 from pathlib import Path
 from time import sleep
-# import os
-import sys
+from sys import stdout
+import os
 
-# import click
+import click
 
 from .local import RunLocal
 from .stack import StackConfig
+from . import __version__
 
 # Pacify Click:
-# if os.environ.get("LANG", None) is None:
-#    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
+if os.environ.get("LANG", None) is None:
+    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
 
 
-def deploy(stack_config, tag_overrides):
-    """Start minikube and deploy current config."""
-    with open("pib.log", "a+") as logfile:
-        run_local = RunLocal(logfile)
-        run_local.ensure_requirements()
-        run_local.start_minikube()
-        run_local.deploy(stack_config, tag_overrides)
-        print(run_local.get_service_urls())
+def start(logfile_path):
+    """Download and start necessary tools.
+
+    :return: RunLocal instance.
+    """
+    if logfile_path == "-":
+        logfile = stdout
+    else:
+        logfile = open(logfile_path, "a+")
+    run_local = RunLocal(logfile)
+    run_local.ensure_requirements()
+    run_local.start_minikube()
+    run_local.set_minikube_docker_env()
+    return run_local
 
 
-def watch(stack_config):
+def redeploy(run_local, stack_config):
+    """Redeploy currently checked out version of the code."""
+    tag_overrides = run_local.rebuild_docker_image(stack_config)
+    run_local.deploy(stack_config, tag_overrides)
+
+
+def print_service_url(run_local, stack_config):
+    """Print the service URL."""
+    click.echo("Service URL: {}".format(
+        run_local.get_service_url(stack_config)))
+
+
+def watch(run_local, stack_config):
     """
     As code changes, rebuild Docker images for given repos in minikube Docker,
     then redeploy.
     """
-    with open("pib.log", "a+") as logfile:
-        run_local = RunLocal(logfile)
-        run_local.ensure_requirements()
-        run_local.start_minikube()
-        run_local.set_minikube_docker_env()
-        while True:
-            tag_overrides = run_local.rebuild_docker_image(stack_config)
-            run_local.deploy(stack_config, tag_overrides)
-            sleep(20)
+    while True:
+        # Kubernetes apply -f takes 20 seconds or so. If we were to redeploy
+        # more often than that we'd get an infinite queue.
+        sleep(20)
+        redeploy(run_local, stack_config)
 
 
-USAGE = """\
-Usage: pib deploy [name=image-tag ...]
-       pib watch
-       pib --help
+@click.group()
+@click.version_option(version=__version__)
+@click.option("--logfile", nargs=1, type=click.Path(writable=True,
+                                                    allow_dash=True,
+                                                    dir_okay=False),
+              default="pib.log",
+              help=("File where logs from running deployment commands will " +
+                    "be written. '-' indicates standard out. Default: pib.log"))
+@click.option("--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
+                                                      exists=True),
+              default=".",
+              help=("Directory where Pibstack.yaml and Dockerfile can be " +
+                    "found. Default: ."))
+@click.pass_context
+def cli(ctx, logfile, directory):
+    """pib: run a Pibstack.yaml file locally."""
+    ctx.obj["logfile"] = logfile
+    ctx.obj["directory"] = directory
 
-Make sure you are in same directory as a Pibstack.yaml file.
-"""
+
+@cli.command("deploy", help="Deploy current Pibstack.yaml.")
+@click.pass_context
+def cli_deploy(ctx):
+    stack_config = StackConfig(Path(ctx.obj["directory"]))
+    run_local = start(ctx.obj["logfile"])
+    redeploy(run_local, stack_config)
+    print_service_url(run_local, stack_config)
+
+
+@cli.command("watch", help="Continuously deploy current Pibstack.yaml.")
+@click.pass_context
+def cli_watch(ctx):
+    stack_config = StackConfig(Path(ctx.obj["directory"]))
+    run_local = start(ctx.obj["logfile"])
+    redeploy(run_local, stack_config)
+    print_service_url(run_local, stack_config)
+    watch(run_local, stack_config)
 
 
 def main():
-    """Main entry point."""
-    if len(sys.argv) < 2:
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
-    if sys.argv[1] == "--help":
-        print(USAGE, file=sys.stderr)
-        sys.exit(0)
-    stack_config = StackConfig(Path("."))
-    if sys.argv[1] == "deploy":
-        deploy(stack_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
-    elif sys.argv[1] == "watch":
-        watch(stack_config)
-    else:
-        raise SystemExit("Not implemented yet.")
+    cli(obj={})  # pylint: disable=E1120,E1123
