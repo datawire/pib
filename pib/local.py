@@ -148,10 +148,13 @@ class RunLocal(object):
         app_name = stack_config.name
         tag_overrides = {}
         # 1. Rebuild Docker images inside Minikube Docker process:
-        tag = run_result(["git", "describe", "--tags", "--dirty",
-                          "--always", "--long"]) + "-" + str(time())
+        tag = run_result(
+            ["git", "describe", "--tags", "--dirty",
+             "--always", "--long"],
+            cwd=str(stack_config.path_to_repo)
+        ) + "-" + str(time())
         tag_overrides[app_name] = tag
-        self._check_call(["docker", "build", ".",
+        self._check_call(["docker", "build", str(stack_config.path_to_repo),
                           "-t", "{}:{}".format(
                               stack_config.services[app_name]["image"], tag)])
         return tag_overrides
