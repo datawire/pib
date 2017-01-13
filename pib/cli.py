@@ -2,17 +2,17 @@
 
 from pathlib import Path
 from time import sleep
-import os
+# import os
 import sys
 
-import click
+# import click
 
 from .local import RunLocal
 from .stack import StackConfig
 
 # Pacify Click:
-if os.environ.get("LANG", None) is None:
-    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
+# if os.environ.get("LANG", None) is None:
+#    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
 
 
 def deploy(stack_config, tag_overrides):
