@@ -1,5 +1,6 @@
 """Local operations."""
 
+import json
 import os
 from os.path import expanduser
 from pathlib import Path
@@ -205,8 +206,17 @@ class RunLocal(object):
 
     def get_service_url(self, stack_config):
         """Return service URL as string."""
-        return run_result(
-            [str(MINIKUBE), "service", "--url", stack_config.name])
+        try:
+            ingress_status = json.loads(run_result(
+                [str(KUBECTL), "get", "ingress",
+                 stack_config.name + "-ingress", "-o", "json"]))
+            host = ingress_status["status"]["loadBalancer"]["ingress"][0]["ip"]
+            path = ingress_status["spec"]["rules"][0]["http"][
+                "paths"][0]["path"]
+            return "http://{}{}".format(host, path)
+        except CalledProcessError:
+            return run_result(
+                [str(MINIKUBE), "service", "--url", stack_config.name])
 
     def set_minikube_docker_env(self):
         """Use minikube's Docker."""
