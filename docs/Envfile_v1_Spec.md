@@ -38,20 +38,40 @@ clusters:
     prod  : prod.api.k8s.example.org
 
 components:
-    redis:
-        local: <docker-repo>
-        test: <terraform-module>
-        prod: <terraform-module>
-        
-    postgresql-9:
-        local: <docker-repo>
-        test: <terraform-module>
-        prod: <terraform-module>
+    local:
+        "redis-v3":
+            type: docker
+            image: redis/redis:3
+            config: {}
+            
+        "postgressql-v96"
+            type: docker
+            image: postgres/postgres:9.6
+            config: {}            
+    
+    prod:
+        "redis-v3":
+            type: aws
+            config: {}
+            
+        "postgressql-v96"
+            type: aws
+            config: {}
+                    
+    prod:
+        "redis-v3":
+            type: aws
+            config: {}            
+            
+        "postgressql-v96"
+            type: aws
+            config:
+                automatic_minor_upgrade: true
         
 applications:
     datawire-legacy:
-        identity: https://github.com/datawire/cloud-identity/master/Pibstack.yaml
-        mrfusion: https://github.com/datawire/mrfusion/master/Pibstack.yaml                  
-        mcp:      https://github.com/datawire/mcp/master/Pibstack.yaml       
+        identity: https://raw.githubusercontent.com/datawire/cloud-identity/master/Pibstack.yaml
+        mrfusion: https://raw.githubusercontent.com/datawire/mrfusion/master/Pibstack.yaml                  
+        mcp:      https://raw.githubusercontent.com/datawire/mcp/master/Pibstack.yaml       
 
 ```
