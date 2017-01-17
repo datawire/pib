@@ -8,6 +8,7 @@ from subprocess import check_call, check_output, CalledProcessError
 from tempfile import NamedTemporaryFile
 from time import sleep, time
 
+from yaml import safe_load, safe_dump
 
 PIB_DIR = Path(expanduser("~")) / ".pib"
 MINIKUBE = PIB_DIR / "minikube"
@@ -46,7 +47,6 @@ spec:
     name: {name}
 """
 
-
 HTTP_DEPLOYMENT = """\
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -69,7 +69,6 @@ spec:
         - containerPort: {port}
 """
 
-
 COMPONENT_DEPLOYMENT = """\
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -91,6 +90,31 @@ spec:
         ports:
         - containerPort: {port}
 """
+
+COMPONENT_CONFIGMAP = """\
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{name}-config"
+data:
+  host: "{name}"
+  port: "{port}"
+"""
+
+
+def yaml_render(template, params, transform=lambda x: None):
+    """Render a YAML template.
+
+    :param template str: YAML-encoded template.
+    :param params dict: Values to substitute on template.
+    :param transform: Mutate the decoded YAML object.
+    :return: The resulting YAML-encoded config.
+    """
+    # 1. Substitute values:
+    loaded_config = safe_load(template.format(**params))
+    # 2. Transform:
+    transform(loaded_config)
+    return safe_dump(loaded_config)
 
 
 def run_result(command, **kwargs):
@@ -139,28 +163,26 @@ class RunLocal(object):
             self._check_call([str(MINIKUBE), "addons", "enable", "ingress"])
             sleep(10)  # make sure it's really up
 
-    def _kubectl(self, command, params, configs, kubectl_args=[]):
+    def _kubectl(self, command, config, kubectl_args=[]):
         """Run kubectl.
 
         :param command: The kubectl command.
         :param params: Parameters with which to render the configs.
         :param configs: YAML-encoded configuration.
         """
-        for config in configs:
-            config = config.format(**params)
-            with NamedTemporaryFile("w", suffix=".yaml") as f:
-                f.write(config)
-                f.flush()
-                self._check_call([str(KUBECTL), command, "-f", f.name] +
-                                 kubectl_args)
+        with NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
+            f.write(config)
+            f.flush()
+            self._check_call([str(KUBECTL), command, "-f", f.name] +
+                             kubectl_args)
 
-    def _kubectl_apply(self, params, configs):
+    def _kubectl_apply(self, config):
         """Run kubectl apply on the given configs."""
-        self._kubectl("apply", params, configs)
+        self._kubectl("apply", config)
 
-    def _kubectl_delete(self, params, configs):
+    def _kubectl_delete(self, config):
         """Run kubectl delete on the given configs."""
-        self._kubectl("delete", params, configs,
+        self._kubectl("delete", config,
                       kubectl_args=["--ignore-not-found=true"])
 
     def rebuild_docker_image(self, stack_config):
@@ -189,14 +211,33 @@ class RunLocal(object):
         params["image"] = stack_config.docker_repository
         params["service_type"] = "NodePort"
         params["tag"] = tag_overrides.get(stack_config.name, "latest")
-        self._kubectl_apply(params, [SERVICE, HTTP_DEPLOYMENT])
+        self._kubectl_apply(yaml_render(SERVICE, params))
+        self._kubectl_apply(yaml_render(COMPONENT_CONFIGMAP, params))
+
+        def add_environment(deployment_config):
+            env = []
+            for component_name, component in stack_config.components.items():
+                for value in ["host", "port"]:
+                    env.append({
+                        "name": "{}_COMPONENT_{}".format(
+                            component.upper().replace("-", "_"),
+                            value.upper()),
+                        "valueFrom": {
+                            "configMapKeyRef":
+                            {"name": "{}-config".format(component_name),
+                             "key": value}}
+                    })
+            deployment_config["spec"]["template"]["spec"]["containers"][0][
+                "env"] = env
+        self._kubectl_apply(yaml_render(HTTP_DEPLOYMENT, params,
+                                        transform=add_environment))
         if stack_config.expose:
             params["path"] = stack_config.expose["path"]
-            self._kubectl_apply(params, [INGRESS])
+            self._kubectl_apply(yaml_render(INGRESS, params))
         else:
             # Remove any existing ingress:
             params["path"] = "/"
-            self._kubectl_delete(params, [INGRESS])
+            self._kubectl_delete(yaml_render(INGRESS, params))
         del params
         for name, service in stack_config.components.items():
             params = dict(name=name)
@@ -205,7 +246,8 @@ class RunLocal(object):
             params["port"] = 5432
             params["image"] = "postgres:9.6"
             params["service_type"] = "ClusterIP"
-            self._kubectl_apply(params, [SERVICE, COMPONENT_DEPLOYMENT])
+            for config in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
+                self._kubectl_apply(yaml_render(config, params))
 
     def get_service_url(self, stack_config):
         """Return service URL as string."""
