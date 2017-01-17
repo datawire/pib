@@ -32,46 +32,55 @@ Example:
 
 __version: 1
 
-clusters:
-    local : localhost 
-    test  : test.api.k8s.example.org
-    prod  : prod.api.k8s.example.org
-
-components:
+environments:
     local:
-        "redis-v3":
-            type: docker
-            image: redis/redis:3
-            config: {}
-            
-        "postgressql-v96"
-            type: docker
-            image: postgres/postgres:9.6
-            config: {}            
-    
+        address: localhost
+        components:
+            "redis-v3":
+                type: docker
+                image: redis/redis:3
+                config: {}
+                
+            "postgressql-v96":
+                type: docker
+                image: postgres/postgres:9.6
+                config: {}
+                
     test:
-        "redis-v3":
-            type: aws
-            config: {}
+        address: test.api.k8s.example.org
+        components:
+            "redis-v3":
+                type: aws
+                config: {}
             
-        "postgressql-v96"
-            type: aws
-            config: {}
-                    
+            "postgressql-v96":
+                type: aws
+                config: {}
+                
     prod:
-        "redis-v3":
-            type: aws
-            config: {}            
+        address: prod.api.k8s.example.org
+        components:
+            "redis-v3":
+                type: aws
+                config: {}
             
-        "postgressql-v96"
-            type: aws
-            config:
-                automatic_minor_upgrade: true
+            "postgressql-v96":
+                type: aws
+                config:
+                    automatic_minor_upgrade: true
         
 applications:
     datawire-legacy:
-        identity: https://raw.githubusercontent.com/datawire/cloud-identity/master/Pibstack.yaml
-        mrfusion: https://raw.githubusercontent.com/datawire/mrfusion/master/Pibstack.yaml                  
-        mcp:      https://raw.githubusercontent.com/datawire/mcp/master/Pibstack.yaml       
+        identity: 
+            descriptor: https://raw.githubusercontent.com/datawire/cloud-identity/master/Pibstack.yaml
+            image: datawire/identity
+            
+        mrfusion:
+            descriptor: https://raw.githubusercontent.com/datawire/mrfusion/master/Pibstack.yaml                  
+            image: datawire/mrfusion
+            
+        mcp:
+            descriptor: https://raw.githubusercontent.com/datawire/mcp/master/Pibstack.yaml       
+            image: datawire/mcp
 
 ```
