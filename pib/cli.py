@@ -38,7 +38,7 @@ def load_stack_config(config_path):
     try:
         return StackConfig(Path(config_path))
     except ValidationError as e:
-        click.echo("Error loading Pibkstack.yaml:")
+        click.echo("Error loading Pibstack.yaml:")
         for error in e.errors:
             click.echo("---\n" + error)
         exit(1)
