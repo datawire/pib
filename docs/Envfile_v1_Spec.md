@@ -73,14 +73,14 @@ applications:
     datawire-legacy:
         identity: 
             descriptor: https://raw.githubusercontent.com/datawire/cloud-identity/master/Pibstack.yaml
-            image: datawire/identity
+            docker_tag: datawire/identity
             
         mrfusion:
             descriptor: https://raw.githubusercontent.com/datawire/mrfusion/master/Pibstack.yaml                  
-            image: datawire/mrfusion
+            docker_tag: datawire/mrfusion
             
         mcp:
             descriptor: https://raw.githubusercontent.com/datawire/mcp/master/Pibstack.yaml       
-            image: datawire/mcp
+            docker_tag: datawire/mcp
 
 ```
