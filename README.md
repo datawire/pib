@@ -69,3 +69,27 @@ $ cp dist/pib $HOME/bin  # or some other place in $PATH
 `pib` will install `minikube` and `kubectl` when it first runs, you don't need to install them yourself.
 
 TODO: better installation instructions.
+
+## Developer Information
+
+### Hacking Setup
+
+This is the super painless way to get started hacking in a virtualenv configured for development.
+
+```bash
+make venv
+source venv/bin/activate
+pip install -e .
+```
+
+### Running Tests
+
+Be a good developer and run tests before committing :)
+
+```bash
+tox -e py35 # or py34 if you're working in python 3,4 land.
+```
+
+## License
+
+Project is open-source software licensed under **Apache 2.0**. Please see [LICENSE](LICENSE) for further details.

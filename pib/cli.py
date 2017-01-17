@@ -1,250 +1,111 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from subprocess import check_output, check_call, CalledProcessError
-from tempfile import NamedTemporaryFile
-from os.path import expanduser
-from time import sleep, time
+from time import sleep
+from sys import stdout, exit
 import os
-import sys
 
-import yaml
+import click
 
-from .schema import validate, ValidationError
+from .local import RunLocal
+from .stack import StackConfig
+from .schema import ValidationError
+from . import __version__
 
-
-PIB_DIR = Path(expanduser("~")) / ".pib"
-MINIKUBE = PIB_DIR / "minikube"
-KUBECTL = PIB_DIR / "kubectl"
-
-
-SERVICE = """\
-apiVersion: v1
-kind: Service
-metadata:
-  name: {name}
-  labels:
-    name: {name}
-spec:
-  type: {service_type}
-  ports:
-  - port: {port}
-    targetPort: {port}
-    protocol: TCP
-    name: {name}
-  selector:
-    name: {name}
-"""
+# Pacify Click:
+if os.environ.get("LANG", None) is None:
+    os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
 
 
-HTTP_DEPLOYMENT = """\
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: "{name}"
-  labels:
-    name: "{name}"
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        name: "{name}"
-    spec:
-      containers:
-      - name: {name}
-        image: "{image}:{tag}"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: {port}
-        livenessProbe:
-          httpGet:
-            path: /
-            port: {port}
-        readinessProbe:
-          httpGet:
-            path: /
-            port: {port}
-"""
+def start(logfile_path):
+    """Download and start necessary tools.
+
+    :return: RunLocal instance.
+    """
+    if logfile_path == "-":
+        logfile = stdout
+    else:
+        logfile = open(logfile_path, "a+")
+    run_local = RunLocal(logfile)
+    run_local.ensure_requirements()
+    run_local.start_minikube()
+    run_local.set_minikube_docker_env()
+    return run_local
 
 
-POSTGRES_DEPLOYMENT = """\
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: "{name}"
-  labels:
-    name: "{name}"
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        name: "{name}"
-    spec:
-      containers:
-      - name: {name}
-        image: "postgres:9.6"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 5432
-"""
-
-
-def run_result(command, **kwargs):
-    """Return (stripped) command result as unicode string."""
-    return str(check_output(command, **kwargs).strip(), "utf-8")
-
-
-def ensure_requirements():
-    """Make sure kubectl and minikube are available."""
-    uname = run_result("uname").lower()
-    for path, url in zip(
-            [MINIKUBE, KUBECTL],
-            ["https://storage.googleapis.com/minikube/releases/"
-             "v0.14.0/minikube-{}-amd64",
-             "https://storage.googleapis.com/kubernetes-release/"
-             "release/v1.5.1/bin/{}/amd64/kubectl"]):
-        if not path.exists():
-            check_call(["curl",
-                        "--create-dirs",
-                        "--silent",
-                        "--output", str(path),
-                        url.format(uname)])
-            path.chmod(0o755)
-
-
-def start_minikube():
-    """Start minikube."""
-    running = True
+def load_stack_config(config_path):
+    """Load a StackConfig."""
     try:
-        result = run_result([str(MINIKUBE), "status"])
-        running = "Running" in result
-    except CalledProcessError:
-        running = False
-    if not running:
-        check_call([str(MINIKUBE), "start"])
-        sleep(10)  # make sure it's really up
+        return StackConfig(Path(config_path))
+    except ValidationError as e:
+        click.echo("Error loading Pibkstack.yaml:")
+        for error in e.errors:
+            click.echo("---\n" + error)
+        exit(1)
 
 
-def kubectl(params, configs):
-    """Run kubectl on the given configs."""
-    for config in configs:
-        config = config.format(**params)
-        with NamedTemporaryFile("w", suffix=".yaml") as f:
-            f.write(config)
-            f.flush()
-            check_call([str(KUBECTL), "apply", "-f", f.name])
+def redeploy(run_local, stack_config):
+    """Redeploy currently checked out version of the code."""
+    tag_overrides = run_local.rebuild_docker_image(stack_config)
+    run_local.deploy(stack_config, tag_overrides)
 
 
-class StackConfig(object):
-    """The configuration for the stack."""
-
-    def __init__(self, path_to_repo):
-        self.services = {}   # map service name to config dict
-        self.databases = {}  # map database name to config dict
-        stack = path_to_repo / "Pibstack.yaml"
-        with stack.open() as f:
-            data = yaml.safe_load(f.read())
-        try:
-            validate(data)
-        except ValidationError as e:
-            print("Error loading Pibkstack.yaml:", file=sys.stderr)
-            for error in e.errors:
-                print("---\n" + error, file=sys.stderr)
-            sys.exit(1)
-        self.name = data["service"]["name"]
-        for service in [data["service"]] + data["infrastructure"]:
-            name = service["name"]
-            if service.get("type", "container") == "container":
-                self.services[name] = service
-            elif service["type"] == "postgres":
-                self.databases[name] = service
-            else:
-                raise ValueError("Unknown type: " + service["type"])
-
-    def deploy(self, tag_overrides):
-        """Deploy current configuration to the minikube server."""
-        for name, service in self.services.items():
-            params = dict(name=name)
-            params["port"] = service["port"]
-            params["image"] = service["image"]
-            params["service_type"] = "NodePort"
-            params["tag"] = tag_overrides.get(service["name"], "latest")
-            kubectl(params, [SERVICE, HTTP_DEPLOYMENT])
-        for name, service in self.databases.items():
-            params = dict(name=name)
-            params["port"] = 5432
-            params["service_type"] = "ClusterIP"
-            kubectl(params, [SERVICE, POSTGRES_DEPLOYMENT])
+def print_service_url(run_local, stack_config):
+    """Print the service URL."""
+    click.echo("Service URL: {}".format(
+        run_local.get_service_url(stack_config)))
 
 
-def deploy(stack_config, tag_overrides):
-    """Start minikube and deploy current config."""
-    ensure_requirements()
-    start_minikube()
-    stack_config.deploy(tag_overrides)
-    check_call([str(MINIKUBE), "service", "list", "--namespace=default"])
-
-
-def set_minikube_docker_env():
-    """Use minikube's Docker."""
-    shell_script = run_result([str(MINIKUBE), "docker-env", "--shell", "bash"])
-    for line in shell_script.splitlines():
-        line = line.strip()
-        if line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            key, value = line[len("export "):].strip().split("=", 1)
-            value = value.strip('"')
-            os.environ[key] = value
-
-
-def watch(stack_config):
+def watch(run_local, stack_config):
     """
     As code changes, rebuild Docker images for given repos in minikube Docker,
     then redeploy.
     """
-    ensure_requirements()
-    start_minikube()
-    set_minikube_docker_env()
     while True:
-        app_name = stack_config.name
-        tag_overrides = {}
-        # 1. Rebuild Docker images inside Minikube Docker process:
-        tag = run_result(["git", "describe", "--tags", "--dirty",
-                          "--always", "--long"]) + "-" + str(time())
-        tag_overrides[app_name] = tag
-        check_call(["docker", "build", ".",
-                    "-t", "{}:{}".format(
-                        stack_config.services[app_name]["image"], tag)])
-        # 2. Redeploy
-        stack_config.deploy(tag_overrides)
-        # 3. Sleep a bit
+        # Kubernetes apply -f takes 20 seconds or so. If we were to redeploy
+        # more often than that we'd get an infinite queue.
         sleep(20)
+        redeploy(run_local, stack_config)
 
 
-USAGE = """\
-Usage: pib deploy [name=image-tag ...]
-       pib watch
-       pib --help
+@click.group()
+@click.version_option(version=__version__)
+@click.option("--logfile", nargs=1, type=click.Path(writable=True,
+                                                    allow_dash=True,
+                                                    dir_okay=False),
+              default="pib.log",
+              help=("File where logs from running deployment commands will " +
+                    "be written. '-' indicates standard out. Default: pib.log"))
+@click.option("--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
+                                                      exists=True),
+              default=".",
+              help=("Directory where Pibstack.yaml and Dockerfile can be " +
+                    "found. Default: ."))
+@click.pass_context
+def cli(ctx, logfile, directory):
+    """pib: run a Pibstack.yaml file locally."""
+    ctx.obj["logfile"] = logfile
+    ctx.obj["directory"] = directory
 
-Make sure you are in same directory as a Pibstack.yaml file.
-"""
+
+@cli.command("deploy", help="Deploy current Pibstack.yaml.")
+@click.pass_context
+def cli_deploy(ctx):
+    stack_config = load_stack_config(Path(ctx.obj["directory"]))
+    run_local = start(ctx.obj["logfile"])
+    redeploy(run_local, stack_config)
+    print_service_url(run_local, stack_config)
+
+
+@cli.command("watch", help="Continuously deploy current Pibstack.yaml.")
+@click.pass_context
+def cli_watch(ctx):
+    stack_config = load_stack_config(Path(ctx.obj["directory"]))
+    run_local = start(ctx.obj["logfile"])
+    redeploy(run_local, stack_config)
+    print_service_url(run_local, stack_config)
+    watch(run_local, stack_config)
 
 
 def main():
-    """Main entry point."""
-    if len(sys.argv) < 2:
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
-    if sys.argv[1] == "--help":
-        print(USAGE, file=sys.stderr)
-        sys.exit(0)
-    stack_config = StackConfig(Path("."))
-    if sys.argv[1] == "deploy":
-        deploy(stack_config, dict([s.split("=", 1) for s in sys.argv[2:]]))
-    elif sys.argv[1] == "watch":
-        watch(stack_config)
-    else:
-        raise SystemExit("Not implemented yet.")
+    cli(obj={})  # pylint: disable=E1120,E1123

@@ -1,2 +1,1 @@
-# Config file for flake8, in case we need to override something and to pacify
-#  emacs.
+# Trying to pacify emacs flycheck. Actual config is in tox.ini.
