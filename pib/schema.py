@@ -27,7 +27,8 @@ def validate(pibstack):
     :raises ValidationError: if validation failed.
     """
     if not VALIDATOR.is_valid(pibstack):
-        errors = [str(e) for e in VALIDATOR.iter_errors(pibstack)]
+        errors = ["/{}: {}".format("/".join(map(str, e.path)), e.message)
+                  for e in VALIDATOR.iter_errors(pibstack)]
         raise ValidationError(errors)
 
 
