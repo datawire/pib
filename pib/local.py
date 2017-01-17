@@ -151,8 +151,8 @@ class RunLocal(object):
             with NamedTemporaryFile("w", suffix=".yaml") as f:
                 f.write(config)
                 f.flush()
-                self._check_call([str(KUBECTL), command, "-f", f.name]
-                                 + kubectl_args)
+                self._check_call([str(KUBECTL), command, "-f", f.name] +
+                                 kubectl_args)
 
     def _kubectl_apply(self, params, configs):
         """Run kubectl apply on the given configs."""
