@@ -130,7 +130,7 @@ class RunLocal(object):
 
     def _check_call(self, *args, **kwargs):
         """Run a subprocess, make sure it exited with 0."""
-        self.logfile.write("Running: {}".format(args))
+        self.logfile.write("Running: {}\n".format(args))
         check_call(*args, stdout=self.logfile, **kwargs)
 
     def ensure_requirements(self):
