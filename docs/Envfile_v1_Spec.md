@@ -50,12 +50,8 @@ components:
         
 applications:
     datawire-legacy:
-        identity:
-            image: <docker-repo>
-        
-        mrfusion:
-            image: <docker-repo>
-            
-        mcp:
-            image: <docker-repo>
+        identity: https://github.com/datawire/cloud-identity/master/Pibstack.yaml
+        mrfusion: https://github.com/datawire/mrfusion/master/Pibstack.yaml                  
+        mcp:      https://github.com/datawire/mcp/master/Pibstack.yaml       
+
 ```
