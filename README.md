@@ -62,7 +62,7 @@ To build and install:
 
 ```console
 $ pip install tox
-$ tox -e py34  # or py35 if you have Python 3.5
+$ tox -e py3
 $ cp dist/pib $HOME/bin  # or some other place in $PATH
 ```
 
@@ -87,7 +87,7 @@ pip install -e .
 Be a good developer and run tests before committing :)
 
 ```bash
-tox -e py35 # or py34 if you're working in python 3,4 land.
+tox -e py3
 ```
 
 ## License
