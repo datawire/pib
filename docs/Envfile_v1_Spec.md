@@ -71,16 +71,13 @@ environments:
         
 applications:
     datawire-legacy:
-        identity: 
-            descriptor: https://raw.githubusercontent.com/datawire/cloud-identity/master/Pibstack.yaml
-            docker_tag: datawire/identity
+        - descriptor: https://raw.githubusercontent.com/datawire/cloud-identity/master/Pibstack.yaml
+          docker_tag: 1.0
             
-        mrfusion:
-            descriptor: https://raw.githubusercontent.com/datawire/mrfusion/master/Pibstack.yaml                  
-            docker_tag: datawire/mrfusion
+        - descriptor: https://raw.githubusercontent.com/datawire/mrfusion/master/Pibstack.yaml                  
+          docker_tag: 1.0
             
-        mcp:
-            descriptor: https://raw.githubusercontent.com/datawire/mcp/master/Pibstack.yaml       
-            docker_tag: datawire/mcp
+        - descriptor: https://raw.githubusercontent.com/datawire/mcp/master/Pibstack.yaml       
+          docker_tag: 1.0
 
 ```
