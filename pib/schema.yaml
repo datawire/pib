@@ -5,6 +5,8 @@ properties:
   pibstackVersion:
     type: integer
     enum: [1]
+  name:
+    type: string
   image:
     type: object
     properties:
@@ -33,5 +35,5 @@ properties:
           type: string
       required: ["type", "template"]
       additionalProperties: false
-required: ["pibstackVersion", "image"]
+required: ["pibstackVersion", "image", "name"]
 additionalProperties: false

@@ -70,7 +70,7 @@ spec:
 """
 
 
-POSTGRES_DEPLOYMENT = """\
+COMPONENT_DEPLOYMENT = """\
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -85,11 +85,11 @@ spec:
         name: "{name}"
     spec:
       containers:
-      - name: {name}
-        image: "postgres:9.6"
+      - name: "{name}"
+        image: "{image}"
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 5432
+        - containerPort: {port}
 """
 
 
@@ -179,30 +179,33 @@ class RunLocal(object):
         tag_overrides[app_name] = tag
         self._check_call(["docker", "build", str(stack_config.path_to_repo),
                           "-t", "{}:{}".format(
-                              stack_config.services[app_name]["image"], tag)])
+                              stack_config.docker_repository, tag)])
         return tag_overrides
 
     def deploy(self, stack_config, tag_overrides):
         """Deploy current configuration to the minikube server."""
-        for name, service in stack_config.services.items():
+        params = dict(name=stack_config.name)
+        params["port"] = stack_config.port
+        params["image"] = stack_config.docker_repository
+        params["service_type"] = "NodePort"
+        params["tag"] = tag_overrides.get(stack_config.name, "latest")
+        self._kubectl_apply(params, [SERVICE, HTTP_DEPLOYMENT])
+        if stack_config.expose:
+            params["path"] = stack_config.expose["path"]
+            self._kubectl_apply(params, [INGRESS])
+        else:
+            # Remove any existing ingress:
+            params["path"] = "/"
+            self._kubectl_delete(params, [INGRESS])
+        del params
+        for name, service in stack_config.components.items():
             params = dict(name=name)
-            params["port"] = service.get("port", 80)
-            params["image"] = service["image"]
-            params["service_type"] = "NodePort"
-            params["tag"] = tag_overrides.get(service["name"], "latest")
-            self._kubectl_apply(params, [SERVICE, HTTP_DEPLOYMENT])
-            if "path" in service:
-                params["path"] = service["path"]
-                self._kubectl_apply(params, [INGRESS])
-            else:
-                # Remove any existing ingress:
-                params["path"] = "/"
-                self._kubectl_delete(params, [INGRESS])
-        for name, service in stack_config.databases.items():
-            params = dict(name=name)
+            # XXX for now we only support postgresql
+            params["name"] = name
             params["port"] = 5432
+            params["image"] = "postgres:9.6"
             params["service_type"] = "ClusterIP"
-            self._kubectl_apply(params, [SERVICE, POSTGRES_DEPLOYMENT])
+            self._kubectl_apply(params, [SERVICE, COMPONENT_DEPLOYMENT])
 
     def get_service_url(self, stack_config):
         """Return service URL as string."""

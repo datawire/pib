@@ -24,6 +24,8 @@ A Pibstack is composed of a root YAML dictionary that contains nested dictionari
 
 4. The root **MAY** have a field [`expose` `(type = ExposeSpec)`](#ExposeSpec)  which indicates how the service should be publicly exposed (e.g. via HTTP).
 
+1. The root dictionary must have a field `name` `(type: String)` which indicates the name of the service.
+
 For example:
 
 ```yaml
@@ -34,7 +36,7 @@ image:
 
 requires:
   - type: "component"
-    : "redis-v3"
+    template: "redis-v3"
 ```
 
 ### ImageSpec
@@ -53,7 +55,8 @@ The RequiresSpec object indicates a service has specific dependencies that **MUS
 Each entry in the RequiresSpec should have the following format:
 
 1. The entry **MUST** have a `type` `(type = String)` field that indicates how the system should attempt to satisfy the requirement.
-2. The entry **MUST** have a `name` `(type = String)` field that indicates the name of the requirement and aids the deployment system in satisfying the requirement.
+2. The entry **MUST** have a `template` `(type = String)` field that indicates the template to use when creating the requirement.
+   This aids the deployment system in satisfying the requirement.
 
 
 ### InfoSpec
