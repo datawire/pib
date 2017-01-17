@@ -138,14 +138,29 @@ class RunLocal(object):
             self._check_call([str(MINIKUBE), "addons", "enable", "ingress"])
             sleep(10)  # make sure it's really up
 
-    def _kubectl_apply(self, params, configs):
-        """Run kubectl on the given configs."""
+    def _kubectl(self, command, params, configs, kubectl_args=[]):
+        """Run kubectl.
+
+        :param command: The kubectl command.
+        :param params: Parameters with which to render the configs.
+        :param configs: YAML-encoded configuration.
+        """
         for config in configs:
             config = config.format(**params)
             with NamedTemporaryFile("w", suffix=".yaml") as f:
                 f.write(config)
                 f.flush()
-                self._check_call([str(KUBECTL), "apply", "-f", f.name])
+                self._check_call([str(KUBECTL), command, "-f", f.name]
+                                 + kubectl_args)
+
+    def _kubectl_apply(self, params, configs):
+        """Run kubectl apply on the given configs."""
+        self._kubectl("apply", params, configs)
+
+    def _kubectl_delete(self, params, configs):
+        """Run kubectl delete on the given configs."""
+        self._kubectl("delete", params, configs,
+                      kubectl_args=["--ignore-not-found=true"])
 
     def rebuild_docker_image(self, stack_config):
         """Rebuild the Docker image for current directory.
@@ -175,10 +190,13 @@ class RunLocal(object):
             params["service_type"] = "NodePort"
             params["tag"] = tag_overrides.get(service["name"], "latest")
             self._kubectl_apply(params, [SERVICE, HTTP_DEPLOYMENT])
-            # XXX what about removal of path
             if "path" in service:
                 params["path"] = service["path"]
                 self._kubectl_apply(params, [INGRESS])
+            else:
+                # Remove any existing ingress:
+                params["path"] = "/"
+                self._kubectl_delete(params, [INGRESS])
         for name, service in stack_config.databases.items():
             params = dict(name=name)
             params["port"] = 5432
