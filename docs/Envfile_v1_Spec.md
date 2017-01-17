@@ -49,7 +49,7 @@ components:
             image: postgres/postgres:9.6
             config: {}            
     
-    prod:
+    test:
         "redis-v3":
             type: aws
             config: {}
