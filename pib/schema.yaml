@@ -1,0 +1,39 @@
+$schema: http://json-schema.org/draft-04/schema#
+id: https://github.com/datawire/pib/stack.yaml
+type: object
+properties:
+  pibstackVersion:
+    type: integer
+    enum: [1]
+  name:
+    type: string
+  image:
+    type: object
+    properties:
+      repository:
+        title: "The container image without a tag, e.g. example/myapp"
+        type: string
+      port:
+        type: integer
+    required: ["repository", "port"]
+    additionalProperties: false
+  expose:
+    type: object
+    properties:
+      path:
+        type: string
+    required: ["path"]
+    additionalProperties: false
+  requires:
+    type: array
+    items:
+      properties:
+        type:
+          type: string
+          enum: ["component"]
+        template:
+          type: string
+      required: ["type", "template"]
+      additionalProperties: false
+required: ["pibstackVersion", "image", "name"]
+additionalProperties: false

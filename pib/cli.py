@@ -2,13 +2,14 @@
 
 from pathlib import Path
 from time import sleep
-from sys import stdout
+from sys import stdout, exit
 import os
 
 import click
 
 from .local import RunLocal
 from .stack import StackConfig
+from .schema import ValidationError
 from . import __version__
 
 # Pacify Click:
@@ -30,6 +31,17 @@ def start(logfile_path):
     run_local.start_minikube()
     run_local.set_minikube_docker_env()
     return run_local
+
+
+def load_stack_config(config_path):
+    """Load a StackConfig."""
+    try:
+        return StackConfig(Path(config_path))
+    except ValidationError as e:
+        click.echo("Error loading Pibstack.yaml:")
+        for error in e.errors:
+            click.echo("---\n" + error)
+        exit(1)
 
 
 def redeploy(run_local, stack_config):
@@ -79,7 +91,7 @@ def cli(ctx, logfile, directory):
 @cli.command("deploy", help="Deploy current Pibstack.yaml.")
 @click.pass_context
 def cli_deploy(ctx):
-    stack_config = StackConfig(Path(ctx.obj["directory"]))
+    stack_config = load_stack_config(Path(ctx.obj["directory"]))
     run_local = start(ctx.obj["logfile"])
     redeploy(run_local, stack_config)
     print_service_url(run_local, stack_config)
@@ -88,7 +100,7 @@ def cli_deploy(ctx):
 @cli.command("watch", help="Continuously deploy current Pibstack.yaml.")
 @click.pass_context
 def cli_watch(ctx):
-    stack_config = StackConfig(Path(ctx.obj["directory"]))
+    stack_config = load_stack_config(Path(ctx.obj["directory"]))
     run_local = start(ctx.obj["logfile"])
     redeploy(run_local, stack_config)
     print_service_url(run_local, stack_config)

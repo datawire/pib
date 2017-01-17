@@ -13,6 +13,9 @@ setup(
             'fabformer=fabformer.cli:cli'
         ],
     },
+    package_data={
+        "pib": ["*.yaml"],
+    },
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
 )
