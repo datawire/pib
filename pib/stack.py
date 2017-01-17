@@ -2,6 +2,8 @@
 
 import yaml
 
+from .schema import validate
+
 
 class StackConfig(object):
     """The configuration for the stack."""
@@ -14,6 +16,7 @@ class StackConfig(object):
         stack = path_to_repo / "Pibstack.yaml"
         with stack.open() as f:
             data = yaml.safe_load(f.read())
+        validate(data)
         self.name = data["main"]["name"]
         for service in [data["main"]] + data["requires"]:
             name = service["name"]
