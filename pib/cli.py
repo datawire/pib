@@ -17,16 +17,23 @@ if os.environ.get("LANG", None) is None:
     os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
 
 
-def start(logfile_path):
-    """Download and start necessary tools.
-
-    :return: RunLocal instance.
+def create_run_local(logfile_path):
+    """
+    :return: RunLocal instance for the given logfile path.
     """
     if logfile_path == "-":
         logfile = stdout
     else:
         logfile = open(logfile_path, "a+")
-    run_local = RunLocal(logfile)
+    return RunLocal(logfile)
+
+
+def start(logfile_path):
+    """Download and start necessary tools.
+
+    :return: RunLocal instance.
+    """
+    run_local = create_run_local(logfile_path)
     run_local.ensure_requirements()
     run_local.start_minikube()
     run_local.set_minikube_docker_env()
@@ -109,6 +116,15 @@ def cli_watch(logfile, directory):
     redeploy(run_local, stack_config)
     print_service_url(run_local, stack_config)
     watch(run_local, stack_config)
+
+
+@cli.command("initialize-env", help="Initialize the full-system environment.")
+@opt_logfile
+@click.argument("git-repository")
+def cli_initialize_env(logfile, git_repository):
+    run_local = create_run_local(logfile)
+    run_local.initialize_environment(git_repository)
+    click.echo("Environment initialized.")
 
 
 def main():
