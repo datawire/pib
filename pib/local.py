@@ -251,10 +251,9 @@ class RunLocal(object):
     def _deploy_components(self, stack):
         for component in stack.requires:
             params = {}
-            # XXX for now we only support postgresql
             params["name"] = self._component_name(stack, component)
-            params["port"] = 5432
-            params["image"] = "postgres:9.6"
+            params["port"] = component.config.port
+            params["image"] = component.image
             params["service_type"] = "ClusterIP"
             for config in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
                 self._kubectl_apply(yaml_render(config, params))
