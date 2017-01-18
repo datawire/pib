@@ -127,5 +127,16 @@ def cli_initialize_env(logfile, git_repository):
     click.echo("Environment initialized.")
 
 
+@cli.command("wipe", help="Wipe all locally deployed services.")
+@opt_logfile
+@click.confirmation_option(prompt='Are you sure you want to delete everything'
+                           ' deployed to your local Kubernetes server '
+                           '(minikube)?\nThis will also delete services not '
+                           'started by pib.')
+def cli_wipe(logfile):
+    run_local = start(logfile)
+    run_local.wipe()
+    click.echo("Wiped!")
+
 def main():
     cli()  # pylint: disable=E1120,E1123
