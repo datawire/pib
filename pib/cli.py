@@ -30,6 +30,7 @@ def start(logfile_path):
     run_local.ensure_requirements()
     run_local.start_minikube()
     run_local.set_minikube_docker_env()
+    run_local.update_environment()
     return run_local
 
 
@@ -68,44 +69,47 @@ def watch(run_local, stack_config):
         redeploy(run_local, stack_config)
 
 
+opt_logfile = click.option(
+    "--logfile", nargs=1, type=click.Path(writable=True,
+                                          allow_dash=True,
+                                          dir_okay=False),
+    default="pib.log",
+    help=("File where logs from running deployment commands will " +
+          "be written. '-' indicates standard out. Default: pib.log"))
+opt_directory = click.option(
+    "--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
+                                            exists=True),
+    default=".",
+    help=("Directory where Pibstack.yaml and Dockerfile can be " +
+          "found. Default: ."))
+
+
 @click.group()
 @click.version_option(version=__version__)
-@click.option("--logfile", nargs=1, type=click.Path(writable=True,
-                                                    allow_dash=True,
-                                                    dir_okay=False),
-              default="pib.log",
-              help=("File where logs from running deployment commands will " +
-                    "be written. '-' indicates standard out. Default: pib.log"))
-@click.option("--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
-                                                      exists=True),
-              default=".",
-              help=("Directory where Pibstack.yaml and Dockerfile can be " +
-                    "found. Default: ."))
-@click.pass_context
-def cli(ctx, logfile, directory):
+def cli():
     """pib: run a Pibstack.yaml file locally."""
-    ctx.obj["logfile"] = logfile
-    ctx.obj["directory"] = directory
 
 
 @cli.command("deploy", help="Deploy current Pibstack.yaml.")
-@click.pass_context
-def cli_deploy(ctx):
-    stack_config = load_stack_config(Path(ctx.obj["directory"]))
-    run_local = start(ctx.obj["logfile"])
+@opt_logfile
+@opt_directory
+def cli_deploy(logfile, directory):
+    stack_config = load_stack_config(Path(directory))
+    run_local = start(logfile)
     redeploy(run_local, stack_config)
     print_service_url(run_local, stack_config)
 
 
 @cli.command("watch", help="Continuously deploy current Pibstack.yaml.")
-@click.pass_context
-def cli_watch(ctx):
-    stack_config = load_stack_config(Path(ctx.obj["directory"]))
-    run_local = start(ctx.obj["logfile"])
+@opt_logfile
+@opt_directory
+def cli_watch(logfile, directory):
+    stack_config = load_stack_config(Path(directory))
+    run_local = start(logfile)
     redeploy(run_local, stack_config)
     print_service_url(run_local, stack_config)
     watch(run_local, stack_config)
 
 
 def main():
-    cli(obj={})  # pylint: disable=E1120,E1123
+    cli()  # pylint: disable=E1120,E1123
