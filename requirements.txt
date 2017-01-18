@@ -1,5 +1,6 @@
 boto3
 click
 jsonschema
+python_jsonschema_objects
 pyyaml
 requests
