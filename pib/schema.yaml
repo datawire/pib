@@ -1,5 +1,6 @@
 $schema: http://json-schema.org/draft-04/schema#
 id: https://github.com/datawire/pib/stack.yaml
+title: Pibstack
 type: object
 properties:
   pibstackVersion:
@@ -9,9 +10,10 @@ properties:
     type: string
   image:
     type: object
+    title: "Image"
     properties:
       repository:
-        title: "The container image without a tag, e.g. example/myapp"
+        description: "The container image without a tag, e.g. example/myapp"
         type: string
       port:
         type: integer
@@ -19,6 +21,7 @@ properties:
     additionalProperties: false
   expose:
     type: object
+    title: "Expose"
     properties:
       path:
         type: string
@@ -27,6 +30,8 @@ properties:
   requires:
     type: array
     items:
+      type: object
+      title: "Component"
       properties:
         type:
           type: string

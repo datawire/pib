@@ -190,7 +190,7 @@ class RunLocal(object):
 
         :return dict: map application name to tag to use.
         """
-        app_name = stack_config.name
+        app_name = stack_config.stack.name
         tag_overrides = {}
         # 1. Rebuild Docker images inside Minikube Docker process:
         tag = run_result(
@@ -201,48 +201,58 @@ class RunLocal(object):
         tag_overrides[app_name] = tag
         self._check_call(["docker", "build", str(stack_config.path_to_repo),
                           "-t", "{}:{}".format(
-                              stack_config.docker_repository, tag)])
+                              stack_config.stack.image.repository, tag)])
         return tag_overrides
 
     def deploy(self, stack_config, tag_overrides):
         """Deploy current configuration to the minikube server."""
-        params = dict(name=stack_config.name)
-        params["port"] = stack_config.port
-        params["image"] = stack_config.docker_repository
+        self._deploy_service(stack_config.stack, tag_overrides)
+        self._deploy_components(stack_config.stack)
+
+    def _component_name(self, stack, component):
+        return "{}-{}".format(stack.name, component.template)
+
+    def _deploy_service(self, stack, tag_overrides):
+        name = stack.name
+        params = dict(name=name)
+        params["port"] = stack.image.port
+        params["image"] = stack.image.repository
         params["service_type"] = "NodePort"
-        params["tag"] = tag_overrides.get(stack_config.name, "latest")
+        params["tag"] = tag_overrides.get(name, "latest")
         self._kubectl_apply(yaml_render(SERVICE, params))
         self._kubectl_apply(yaml_render(COMPONENT_CONFIGMAP, params))
 
         def add_environment(deployment_config):
             env = []
-            for component_name, component in stack_config.components.items():
+            for component in stack.requires:
                 for value in ["host", "port"]:
                     env.append({
                         "name": "{}_COMPONENT_{}".format(
-                            component.upper().replace("-", "_"),
+                            component.template.upper().replace("-", "_"),
                             value.upper()),
                         "valueFrom": {
                             "configMapKeyRef":
-                            {"name": "{}-config".format(component_name),
+                            {"name": "{}-config".format(
+                                self._component_name(stack, component)),
                              "key": value}}
                     })
             deployment_config["spec"]["template"]["spec"]["containers"][0][
                 "env"] = env
         self._kubectl_apply(yaml_render(HTTP_DEPLOYMENT, params,
                                         transform=add_environment))
-        if stack_config.expose:
-            params["path"] = stack_config.expose["path"]
+        if stack.expose:
+            params["path"] = stack.expose.path
             self._kubectl_apply(yaml_render(INGRESS, params))
         else:
             # Remove any existing ingress:
             params["path"] = "/"
             self._kubectl_delete(yaml_render(INGRESS, params))
-        del params
-        for name, service in stack_config.components.items():
-            params = dict(name=name)
+
+    def _deploy_components(self, stack):
+        for component in stack.requires:
+            params = {}
             # XXX for now we only support postgresql
-            params["name"] = name
+            params["name"] = self._component_name(stack, component)
             params["port"] = 5432
             params["image"] = "postgres:9.6"
             params["service_type"] = "ClusterIP"
@@ -251,17 +261,18 @@ class RunLocal(object):
 
     def get_service_url(self, stack_config):
         """Return service URL as string."""
+        name = stack_config.stack.name
         try:
             ingress_status = json.loads(run_result(
                 [str(KUBECTL), "get", "ingress",
-                 stack_config.name + "-ingress", "-o", "json"]))
+                 name + "-ingress", "-o", "json"]))
             host = ingress_status["status"]["loadBalancer"]["ingress"][0]["ip"]
             path = ingress_status["spec"]["rules"][0]["http"][
                 "paths"][0]["path"]
             return "http://{}{}".format(host, path)
         except CalledProcessError:
             return run_result(
-                [str(MINIKUBE), "service", "--url", stack_config.name])
+                [str(MINIKUBE), "service", "--url", name])
 
     def set_minikube_docker_env(self):
         """Use minikube's Docker."""
