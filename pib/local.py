@@ -202,6 +202,11 @@ class RunLocal(object):
         self._kubectl("delete", config,
                       kubectl_args=["--ignore-not-found=true"])
 
+    def wipe(self):
+        """Delete everything from k8s."""
+        for category in ["ingress", "service", "deployment", "pod"]:
+            self._check_call([str(KUBECTL), "delete", category, "--all"])
+
     def rebuild_docker_image(self, stack_config):
         """Rebuild the Docker image for current directory.
 
