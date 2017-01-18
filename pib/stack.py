@@ -1,8 +1,11 @@
 """The Pibstack.yaml parsing code."""
 
 import yaml
+import python_jsonschema_objects as pjs
 
 from .schema import validate, PIBSTACK_SCHEMA
+
+Pibstack = pjs.ObjectBuilder(PIBSTACK_SCHEMA).build_classes().Pibstack
 
 
 class StackConfig(object):
@@ -16,10 +19,4 @@ class StackConfig(object):
         with stack.open() as f:
             data = yaml.safe_load(f.read())
         validate(PIBSTACK_SCHEMA, data)
-        self.name = data["name"]
-        self.docker_repository = data["image"]["repository"]
-        self.port = data["image"]["port"]
-        self.expose = data.get("expose", None)
-        for component in data.get("requires", []):
-            name = "{}-{}".format(self.name, component["template"])
-            self.components[name] = component["template"]
+        self.stack = Pibstack(**data)

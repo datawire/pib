@@ -9,15 +9,25 @@ It has a `Dockerfile` that lets you run it in isolation (`docker run examplecom/
 
 Let's codify that relationship by creating a `Pibstack.yaml` in your service's git repository:
 
-```
-main:
-  name: yourapp
-  type: service
-  image: examplecom/yourapp
+```yaml
+---
+pibstackVersion: 1
+
+name: hello
+
+image:
+  repository: examplecom/yourapp
   port: 5100
+
+expose:
+  path: /hello
+
 requires:
-  - name: yourdatabase
-    type: postgres
+  - template: postgres
+    type: component
+    image: "postgres:9.6"
+    config:
+      port: 5432
 ```
 
 Now in your service's git repository you can run:
@@ -32,9 +42,11 @@ This will:
 2. Run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
 3. As you change your code the containers will be updated with the latest version of the code.
 
-Notice that the configuration is high-level: unlike say a Docker Compose file, it doesn't say *how* you run PostgreSQL.
-That means you can use the same configuration file in production, but run dependencies like PostgreSQL some other way.
-For example, you might want production PostgreSQL to run using AWS RDS.
+Notice that the configuration isn't just saying "I need this Docker image as a dependency."
+In addition to specifying an image it also tells you that it's using PostgreSQL (`template: postgres`).
+
+Pib also supports system-level configuration that overrides that template so that it can be used in different ways in different environments.
+For example, you can configure `template: postres` to run the production PostgreSQL using AWS RDS.
 
 The goal of the Pib stack is to allow you to run your service as a whole, sharing the same configuration but allowing you to use the appropriate technology for local development vs. production.
 

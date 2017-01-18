@@ -3,9 +3,11 @@
 We use JSON Schema since it has decent tooling.
 """
 
+from pathlib import Path
+
 from jsonschema import Draft4Validator
 from yaml import safe_load
-from pathlib import Path
+
 
 with (Path(__file__).parent / "schema.yaml").open() as f:
     PIBSTACK_SCHEMA = safe_load(f.read())
