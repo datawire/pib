@@ -128,7 +128,7 @@ def sanity(env, stack):
 
 
 def apply_env(env, stacks):
-    print('Apply updates to environment'.format(env))
+    print('Apply updates to environment {}'.format(env))
     for stack in stacks:
         pass
 
