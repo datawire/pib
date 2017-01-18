@@ -8,7 +8,7 @@ from yaml import safe_load
 from pathlib import Path
 
 with (Path(__file__).parent / "schema.yaml").open() as f:
-    VALIDATOR = Draft4Validator(safe_load(f.read()))
+    PIBSTACK_SCHEMA = safe_load(f.read())
 
 
 class ValidationError(Exception):
@@ -20,15 +20,19 @@ class ValidationError(Exception):
         Exception.__init__(self)
 
 
-def validate(pibstack):
+def validate(schema, instance):
     """
-    Validate a Pibstack.yaml file that has been parsed into Python object.
+    Validate a YAML file that has been parsed into a Python object.
+
+    :param schema: The decoded (POPO) schema.
+    :param instance: The decoded (POPO) instance to validate.
 
     :raises ValidationError: if validation failed.
     """
-    if not VALIDATOR.is_valid(pibstack):
+    validator = Draft4Validator(schema)
+    if not validator.is_valid(instance):
         errors = ["/{}: {}".format("/".join(map(str, e.path)), e.message)
-                  for e in VALIDATOR.iter_errors(pibstack)]
+                  for e in validator.iter_errors(instance)]
         raise ValidationError(errors)
 
 
