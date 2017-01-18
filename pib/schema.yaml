@@ -33,6 +33,10 @@ properties:
           enum: ["component"]
         template:
           type: string
+        config:
+          type: object
+        image:
+          type: string
       required: ["type", "template"]
       additionalProperties: false
 required: ["pibstackVersion", "image", "name"]
