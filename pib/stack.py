@@ -2,7 +2,7 @@
 
 import yaml
 
-from .schema import validate
+from .schema import validate, PIBSTACK_SCHEMA
 
 
 class StackConfig(object):
@@ -15,7 +15,7 @@ class StackConfig(object):
         stack = path_to_repo / "Pibstack.yaml"
         with stack.open() as f:
             data = yaml.safe_load(f.read())
-        validate(data)
+        validate(PIBSTACK_SCHEMA, data)
         self.name = data["name"]
         self.docker_repository = data["image"]["repository"]
         self.port = data["image"]["port"]
