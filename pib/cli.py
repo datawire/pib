@@ -77,15 +77,18 @@ def watch(run_local, stack_config):
 
 
 opt_logfile = click.option(
-    "--logfile", nargs=1, type=click.Path(writable=True,
-                                          allow_dash=True,
-                                          dir_okay=False),
+    "--logfile",
+    nargs=1,
+    type=click.Path(
+        writable=True, allow_dash=True, dir_okay=False),
     default="pib.log",
     help=("File where logs from running deployment commands will " +
           "be written. '-' indicates standard out. Default: pib.log"))
 opt_directory = click.option(
-    "--directory", nargs=1, type=click.Path(readable=True, file_okay=False,
-                                            exists=True),
+    "--directory",
+    nargs=1,
+    type=click.Path(
+        readable=True, file_okay=False, exists=True),
     default=".",
     help=("Directory where Pibstack.yaml and Dockerfile can be " +
           "found. Default: ."))
@@ -137,6 +140,7 @@ def cli_wipe(logfile):
     run_local = start(logfile)
     run_local.wipe()
     click.echo("Wiped!")
+
 
 def main():
     cli()  # pylint: disable=E1120,E1123
