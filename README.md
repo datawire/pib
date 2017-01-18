@@ -32,7 +32,7 @@ requires:
 
 Now in your service's git repository you can run:
 
-```
+```console
 $ pib watch &
 ```
 

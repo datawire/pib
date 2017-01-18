@@ -4,6 +4,7 @@ import json
 import os
 from os.path import expanduser
 from pathlib import Path
+from shutil import rmtree
 from subprocess import check_call, check_output, CalledProcessError
 from tempfile import NamedTemporaryFile
 from time import sleep, time
@@ -11,6 +12,8 @@ from time import sleep, time
 from yaml import safe_load, safe_dump
 
 PIB_DIR = Path(expanduser("~")) / ".pib"
+ENV_DIR = PIB_DIR / "environments"
+DEFAULT_ENV_DIR = ENV_DIR / "default"
 MINIKUBE = PIB_DIR / "minikube"
 KUBECTL = PIB_DIR / "kubectl"
 
@@ -131,7 +134,21 @@ class RunLocal(object):
     def _check_call(self, *args, **kwargs):
         """Run a subprocess, make sure it exited with 0."""
         self.logfile.write("Running: {}\n".format(args))
-        check_call(*args, stdout=self.logfile, **kwargs)
+        check_call(*args, stdout=self.logfile, stderr=self.logfile, **kwargs)
+
+    def initialize_environment(self, git_path):
+        """Initialize the environment, by doing a git clone."""
+        if not ENV_DIR.exists():
+            os.makedirs(str(ENV_DIR))
+        if DEFAULT_ENV_DIR.exists():
+            rmtree(str(DEFAULT_ENV_DIR))
+        self._check_call(["git", "clone", git_path, "default"],
+                         cwd=str(ENV_DIR))
+
+    def update_environment(self):
+        """Update the environment checkout."""
+        if DEFAULT_ENV_DIR.exists():
+            self._check_call(["git", "pull"], cwd=str(DEFAULT_ENV_DIR))
 
     def ensure_requirements(self):
         """Make sure kubectl and minikube are available."""
