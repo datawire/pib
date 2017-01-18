@@ -42,6 +42,9 @@ This will:
 2. Run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
 3. As you change your code the containers will be updated with the latest version of the code.
 
+Your application code can find the address the of the PostgreSQL server by looking at the environment variables `POSTGRES_COMPONENT_HOST` and `POSTGRES_COMPONENT_PORT`.
+In general the environment variables are of the form `<template>_COMPONENT_HOST/PORT` where `template` is the template chosen in the requirement.
+
 Notice that the configuration isn't just saying "I need this Docker image as a dependency."
 In addition to specifying an image it also tells you that it's using PostgreSQL (`template: postgres`).
 
