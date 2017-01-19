@@ -11,6 +11,9 @@ from time import sleep, time
 
 from yaml import safe_load, safe_dump
 
+from .envfile import load_env_file
+
+
 PIB_DIR = Path(expanduser("~")) / ".pib"
 ENV_DIR = PIB_DIR / "environments"
 DEFAULT_ENV_DIR = ENV_DIR / "default"
@@ -150,6 +153,17 @@ class RunLocal(object):
         if DEFAULT_ENV_DIR.exists():
             self._check_call(["git", "pull"], cwd=str(DEFAULT_ENV_DIR))
 
+    def get_envfile(self):
+        """Load the Envfile.yaml, if any.
+
+        :return: Object that has YAML keys as attributes, or None if there is
+            no Envfile.yaml.
+        """
+        if (DEFAULT_ENV_DIR / "Envfile.yaml").exists():
+            return load_env_file(DEFAULT_ENV_DIR)
+        else:
+            return None
+
     def ensure_requirements(self):
         """Make sure kubectl and minikube are available."""
         uname = run_result("uname").lower()
@@ -271,14 +285,29 @@ class RunLocal(object):
             self._kubectl_delete(yaml_render(INGRESS, params))
 
     def _deploy_components(self, stack):
+        envfile = self.get_envfile()
+
+        def get_overrides(component_template):
+            if envfile is None:
+                return None
+            try:
+                return getattr(envfile.environments.local.components,
+                               component_template)
+            except KeyError:
+                return None
+
         for component in stack.requires:
             params = {}
             params["name"] = self._component_name(stack, component)
-            params["port"] = component.config.port
-            params["image"] = component.image
+            overrides = get_overrides(component.template)
+            source_of_truth = component
+            if overrides is not None:
+                source_of_truth = overrides
+            params["port"] = source_of_truth.config.port
+            params["image"] = source_of_truth.image
             params["service_type"] = "ClusterIP"
-            for config in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
-                self._kubectl_apply(yaml_render(config, params))
+            for k8sobj in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
+                self._kubectl_apply(yaml_render(k8sobj, params))
 
     def get_service_url(self, stack_config):
         """Return service URL as string."""

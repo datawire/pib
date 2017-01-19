@@ -10,7 +10,7 @@ An Envfile file is stored and transmitted as a single YAML document that **MUST 
 
 ### Naming
 
-An Envfile file may be named as either `envfile[.yaml]`, `Envfile[.yaml]`. The `.yaml` extension is optional.
+An Envfile file must be named `Envfile.yaml`.
 
 ### Structure
 
