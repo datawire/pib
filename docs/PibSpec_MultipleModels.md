@@ -68,9 +68,9 @@ I'm not asserting that all of these are major issues though I feel strongly like
 
 Terraform works using a `plan -> apply` model for rolling out changes to infrastructure. When something changs in a Terraform configuration the tool notifies the user and expects them to review the changes before invoking the `apply` step. This is done so that potentially dangerous operations are not run without the user consenting to the change, for example, it would be very bad if a database with production data were destroyed accidentally during a run because a user carelessly modified the name of the application or removed a declaration of the database from an application, for example, consider either of these scenarios:
 
-| Original | Accidental Rename | Accidental Removal |
-| -------- | ----------------- | ------------------ |
-| ```yaml
+**ORIGINAL**
+
+```yaml
 applications:
   helloworld:
     - descriptor: https://raw.githubusercontent.com/datawire/helloworld/master/Pibstack.yaml
@@ -78,7 +78,11 @@ applications:
     
     - redis-v3
     - postgresql-v96
-``` | ```yaml
+```
+
+**ACCIDENTAL RENAME**
+
+```yaml
 applications:
   hellworld:
     - descriptor: https://raw.githubusercontent.com/datawire/helloworld/master/Pibstack.yaml
@@ -86,7 +90,11 @@ applications:
     
     - redis-v3
     - postgresql-v96
-``` | ```yaml
+```
+
+**AcCIDENTAL REMOVAL**
+
+```yaml
 applications:
   hellworld:
     - descriptor: https://raw.githubusercontent.com/datawire/helloworld/master/Pibstack.yaml
