@@ -24,3 +24,21 @@ As a developer I am modifying an existing service.
 
 I am setting up pib for the very first time.
 There are no services, no system.
+
+## Transcripts
+
+### ModifyService
+
+Presuming this is first time using `pib`, download it, then:
+
+```console
+$ cd ~/work
+$ git clone git@github.com:myorg/environments.git
+$ git clone git@github.com:myorg/hello.git
+$ pib init --services-path=~/work
+$ pib deploy hello  # deploys 'hello' service
+'hello' deployed from local checkout.
+$ pib deploy --all  # deploys everything in Envfile.yaml
+'hello' deployed from local checkout.
+'anotherservice' not available as local checkout, so deploying image with tag 1.2.1.
+```
