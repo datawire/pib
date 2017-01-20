@@ -27,6 +27,22 @@ There are no services, no system.
 
 ## Transcripts
 
+### NewSystem
+
+Download `pib`, then:
+
+```console
+$ cd ~/work
+$ mkdir environments
+$ mkdir hello
+$ $EDITOR hello/Dockerfile
+$ $EDITOR environments/Envfile.yaml
+$ pib init --services-path=~/work
+$ pib deploy hello
+```
+
+Later `~/work/environments` and `~/work/hello` can be pushed in to version control.
+
 ### ModifyService
 
 Presuming this is first time using `pib`, download it, then:
