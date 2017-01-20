@@ -1,4 +1,4 @@
-"""Schema for the Pibstack.yaml file.
+"""Schema for the Envfile.yaml file.
 
 We use JSON Schema since it has decent tooling.
 """
@@ -10,7 +10,7 @@ from yaml import safe_load
 
 
 with (Path(__file__).parent / "schema.yaml").open() as f:
-    PIBSTACK_SCHEMA = safe_load(f.read())
+    ENVFILE_SCHEMA = safe_load(f.read())
 
 
 class ValidationError(Exception):
