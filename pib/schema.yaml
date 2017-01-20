@@ -1,48 +1,96 @@
 $schema: http://json-schema.org/draft-04/schema#
-id: https://github.com/datawire/pib/stack.yaml
-title: Pibstack
+id: https://github.com/datawire/pib/Envfile.yaml
+title: Envfile
 type: object
 properties:
-  pibstackVersion:
+  Envfile-version:
     type: integer
     enum: [1]
-  name:
-    type: string
-  image:
+  environments:
     type: object
-    title: "Image"
-    properties:
-      repository:
-        description: "The container image without a tag, e.g. example/myapp"
-        type: string
-      port:
-        type: integer
-    required: ["repository", "port"]
-    additionalProperties: false
-  expose:
+    additionalProperties:
+      $ref: "/#definitions/environment"
+  application:
     type: object
-    title: "Expose"
     properties:
-      path:
-        type: string
-    required: ["path"]
+      requires:
+        $ref: "/#definitions/requires"
+      services:
+        type: object
+        additionalProperties:
+          $ref: "/#definitions/service"
     additionalProperties: false
+    required: ["requires", "services"]
+additionalProperties: false
+required: ["Envfile-version", "environments", "application"]
+
+definitions:
+  environment:
+    type: object
+    properties:
+      type:
+        type: string
+        enum: ["minikube", "kubernetes"]
+      components:
+        additionalProperties:
+          oneOf:
+            - $ref: "/#definitions/docker-component"
+    additionalProperties: false
+    required: ["type", "components"]
+
+  docker-component:
+    type: object
+    additionalProperties: false
+    required: ["type", "image", "config"]
+    properties:
+      type:
+        type: string
+        enum: ["docker"]
+      image:
+        type: string
+      config:
+        type: object
+        properties:
+          port:
+            type: integer
+        additionalProperties: false
+        required: ["port"]
+
   requires:
-    type: array
-    items:
+    type: object
+    additionalProperties:
       type: object
-      title: "Component"
       properties:
-        type:
-          type: string
-          enum: ["component"]
         template:
           type: string
-        config:
-          type: object
-        image:
-          type: string
-      required: ["type", "template"]
       additionalProperties: false
-required: ["pibstackVersion", "image", "name"]
-additionalProperties: false
+      required: ["template"]
+
+  service:
+    type: object
+    additionalProperties: false
+    required: ["image", "expose", "requires"]
+    properties:
+      image:
+        type: object
+        title: "Image"
+        properties:
+          repository:
+            description: "The container image without a tag, e.g. example/myapp"
+            type: string
+          tag:
+            type: string
+          port:
+            type: integer
+        required: ["repository", "port", "tag"]
+        additionalProperties: false
+      expose:
+        type: object
+        title: "Expose"
+        properties:
+          path:
+            type: string
+        required: ["path"]
+        additionalProperties: false
+      requires:
+        $ref: "/#definitions/requires"
