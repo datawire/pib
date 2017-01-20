@@ -34,4 +34,4 @@ def test_error_on_bad_instance():
     assert sorted(e.value.errors) == sorted([
         "/: 'count' is a required property",
         "/name: 123 is not of type 'string'"
-        ])
+    ])
