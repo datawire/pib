@@ -6,10 +6,12 @@ properties:
   Envfile-version:
     type: integer
     enum: [1]
-  environments:
-    type: object
+  local:
+    $ref: "/#definitions/local"
+  remote:
     additionalProperties:
-      $ref: "/#definitions/environment"
+      # TODO: Make this enforce structure in later iteration
+      type: string
   application:
     type: object
     properties:
@@ -25,18 +27,15 @@ additionalProperties: false
 required: ["Envfile-version", "environments", "application"]
 
 definitions:
-  environment:
+  local:
     type: object
     properties:
-      type:
-        type: string
-        enum: ["minikube", "kubernetes"]
       components:
         additionalProperties:
           oneOf:
             - $ref: "/#definitions/docker-component"
     additionalProperties: false
-    required: ["type", "components"]
+    required: ["components"]
 
   docker-component:
     type: object
