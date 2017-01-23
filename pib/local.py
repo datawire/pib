@@ -1,6 +1,5 @@
-"""Local operations."""
+"""Local interactions with Minikube and friends."""
 
-import json
 import os
 from os.path import expanduser
 from pathlib import Path
@@ -227,34 +226,37 @@ class RunLocal(object):
 
     def deploy(self, envfile, tag_overrides):
         """Deploy current configuration to the minikube server."""
-        self._deploy_service(stack_config.stack, tag_overrides)
-        self._deploy_components(stack_config.stack)
+        for service in envfile.application.services:
+            self._deploy_service(service, envfile.application.requires,
+                                 tag_overrides)
+        self._deploy_components(envfile)
 
-    def _component_name(self, stack, component):
-        return "{}-{}".format(stack.name, component.template)
-
-    def _deploy_service(self, stack, tag_overrides):
-        name = stack.name
+    def _deploy_service(self, service, common_requires, tag_overrides):
+        """
+        :param service envfile.Service: service to deploy.
+        """
+        name = service.name
         params = dict(name=name)
-        params["port"] = stack.image.port
-        params["image"] = stack.image.repository
+        params["port"] = service.port
+        params["image"] = service.image.repository
         params["service_type"] = "NodePort"
         params["tag"] = tag_overrides.get(name, "latest")
         self._kubectl_apply(yaml_render(SERVICE, params))
         self._kubectl_apply(yaml_render(COMPONENT_CONFIGMAP, params))
 
-        def add_environment(deployment_config):
+        def add_env_variables(deployment_config):
             env = []
-            for component in stack.requires:
+            for component in (
+                    service.requires.values() + common_requires.values()):
                 for value in ["host", "port"]:
                     env.append({
                         "name": "{}_COMPONENT_{}".format(
-                            component.template.upper().replace("-", "_"),
+                            component.name.upper().replace("-", "_"),
                             value.upper()),
                         "valueFrom": {
+                            # TODO: private components can have name conflicts:
                             "configMapKeyRef": {
-                                "name": "{}-config".format(
-                                    self._component_name(stack, component)),
+                                "name": "{}-config".format(component.name),
                                 "key": value
                             }
                         }
@@ -264,55 +266,36 @@ class RunLocal(object):
 
         self._kubectl_apply(
             yaml_render(
-                HTTP_DEPLOYMENT, params, transform=add_environment))
-        if stack.expose:
-            params["path"] = stack.expose.path
+                HTTP_DEPLOYMENT, params, transform=add_env_variables))
+        if service.expose is not None:
+            params["path"] = service.expose.path
             self._kubectl_apply(yaml_render(INGRESS, params))
         else:
             # Remove any existing ingress:
             params["path"] = "/"
             self._kubectl_delete(yaml_render(INGRESS, params))
 
-    def _deploy_components(self, stack):
-        envfile = self.get_envfile()
-
-        def get_overrides(component_template):
-            if envfile is None:
-                return None
-            try:
-                return getattr(envfile.environments.local.components,
-                               component_template)
-            except KeyError:
-                return None
-
-        for component in stack.requires:
+    def _deploy_components(self, envfile):
+        components = envfile.application.requires + sum(
+            [service.requires for service in envfile.application.services], [])
+        for component in components:
             params = {}
-            params["name"] = self._component_name(stack, component)
-            overrides = get_overrides(component.template)
-            source_of_truth = component
-            if overrides is not None:
-                source_of_truth = overrides
-            params["port"] = source_of_truth.config.port
-            params["image"] = source_of_truth.image
+            params["name"] = component.name
+            params["port"] = component.config.port
+            params["image"] = component.image
             params["service_type"] = "ClusterIP"
             for k8sobj in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
                 self._kubectl_apply(yaml_render(k8sobj, params))
 
-    def get_service_url(self, stack_config):
-        """Return service URL as string."""
-        name = stack_config.stack.name
-        try:
-            ingress_status = json.loads(
-                run_result([
-                    str(KUBECTL), "get", "ingress", name + "-ingress", "-o",
-                    "json"
-                ]))
-            host = ingress_status["status"]["loadBalancer"]["ingress"][0]["ip"]
-            path = ingress_status["spec"]["rules"][0]["http"]["paths"][0][
-                "path"]
-            return "http://{}{}".format(host, path)
-        except CalledProcessError:
-            return run_result([str(MINIKUBE), "service", "--url", name])
+    def get_application_urls(self, envfile):
+        """
+        :return: Tuple of service URLs as {name: url} and the main URL.
+        """
+        return {
+            service.name:
+            run_result([str(MINIKUBE), "service", "--url", service.name])
+            for service in envfile.application.services
+        }, "http://{}/".format(run_result([str(MINIKUBE), "ip"]))
 
     def set_minikube_docker_env(self):
         """Use minikube's Docker."""

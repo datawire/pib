@@ -38,7 +38,6 @@ def start(logfile_path):
     run_local.ensure_requirements()
     run_local.start_minikube()
     run_local.set_minikube_docker_env()
-    run_local.update_environment()
     return run_local
 
 
@@ -61,9 +60,12 @@ def redeploy(run_local, envfile, services_directory):
     run_local.deploy(envfile, tag_overrides)
 
 
-def print_service_url(run_local):
+def print_service_url(run_local, envfile):
     """Print the service URL."""
-    click.echo("Application URL: {}".format(run_local.get_application_url()))
+    services, application_url = run_local.get_application_urls(envfile)
+    for name, url in services.items():
+        click.echo("{}: {}\n".format(name, url))
+    click.echo("Main application: {}\n".format(application_url))
 
 
 def watch(run_local, envfile, services_directory):
@@ -116,7 +118,7 @@ def cli_deploy(logfile, directory, envfile):
     directory = Path(directory)
     run_local = start(logfile)
     redeploy(run_local, envfile, directory)
-    print_service_url(run_local)
+    print_service_url(run_local, envfile)
 
 
 @cli.command(
@@ -130,7 +132,7 @@ def cli_watch(logfile, directory, envfile):
     directory = Path(directory)
     run_local = start(logfile)
     redeploy(run_local, envfile, directory)
-    print_service_url(run_local)
+    print_service_url(run_local, envfile)
     watch(run_local, envfile, directory)
 
 
