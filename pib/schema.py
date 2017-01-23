@@ -21,6 +21,9 @@ class ValidationError(Exception):
         self.errors = errors
         Exception.__init__(self)
 
+    def __str__(self):
+        return "Errors:" + "\n".join(self.errors)
+
 
 def validate(schema, instance):
     """

@@ -1,6 +1,7 @@
 """Code for parsing the Envfile."""
 
-from pyrsistent import PClass, field, pvector_field, pmap_field
+from pyrsistent import (PClass, field, pmap_field, freeze, ny as match_any,
+                        discard)
 
 from .schema import validate, ENVFILE_SCHEMA
 
@@ -11,39 +12,40 @@ class DockerComponent(PClass):
     :attr image: The Docker image to run.
     :attr port: The port it listens on.
     """
-    image = field(type=str)
-    port = field(type=int)
+    name = field(type=str)
+    image = field(mandatory=True, type=str)
+    port = field(mandatory=True, type=int)
 
 
 class LocalDeployment(PClass):
     """Runs services and components on Minikube."""
-    components = pvector_field(DockerComponent)
+    components = pmap_field(str, DockerComponent)
 
 
 class RequiredComponent(PClass):
     """A required component."""
-    name = field(type=str)
-    template = field(type=str)
+    name = field(mandatory=True, type=str)
+    template = field(mandatory=True, type=str)
 
 
 class DockerImage(PClass):
     """A Docker image."""
-    repository = field(type=str)
-    tag = field(type=str)
+    repository = field(mandatory=True, type=str)
+    tag = field(mandatory=True, type=str)
 
 
 class Expose(PClass):
     """How a service should be exposed."""
     # TODO: better structure
-    path = field(type=str)
+    path = field(mandatory=True, type=str)
 
 
 class Service(PClass):
     """A service."""
-    name = field(type=str)
-    image = field(type=DockerImage)
-    port = field(type=int, optional=True)
-    expose = field(type=Expose)
+    name = field(mandatory=True, type=str)
+    image = field(mandatory=True, type=DockerImage)
+    port = field(type=(type(None), int), initial=None)
+    expose = field(mandatory=True, type=Expose)
     requires = pmap_field(str, RequiredComponent)
 
 
@@ -55,17 +57,46 @@ class Application(PClass):
 
 class System(PClass):
     """A System loaded from an Envfile.yaml."""
-    local = field(type=LocalDeployment)
+    local = field(mandatory=True, type=LocalDeployment)
     remote = pmap_field(str, str)  # TODO: define structure
-    application = field(type=Application)
+    application = field(mandatory=True, type=Application)
 
 
 def load_envfile(instance):
     """Create System object from loaded Envfile.yaml."""
     validate(ENVFILE_SCHEMA, instance)
-    # At the moment the object model is pretty much 1-to-1 with the
-    # configuration format. In the future that might change; the idea is for
-    # the object model to be an abstraction rather than exactly the same as
-    # config format, so e.g. same object model might support two different
-    # versions of the config format.
+    # At the moment the object model is mostly 1-to-1 with the configuration
+    # format. In the future that might change; the idea is for the object model
+    # to be an abstraction rather than exactly the same as config format, so
+    # e.g. same object model might support two different versions of the config
+    # format.
+
+    # We do however make some minor changes.
+    instance = freeze(instance)
+
+    # 0. Drop unneeded fields:
+    instance = instance.remove("Envfile-version")
+    instance = instance.transform(["local", "components", match_any, "type"],
+                                  discard)
+
+    # 1. Some objects want to know their own name:
+    def add_name(mapping):
+        # Convert {a: {x: 1}} to {a: {name: a, x: 1}}:
+        for key, value in mapping.items():
+            mapping = mapping.set(key, value.set("name", key))
+        return mapping
+
+    instance = instance.transform(["local", "components"], add_name)
+    instance = instance.transform(["application", "requires"], add_name)
+    instance = instance.transform(["application", "services"], add_name)
+    instance = instance.transform(
+        ["application", "services", match_any, "requires"], add_name)
+
+    # 2. Port is first-class value on DockerComponent:
+    def move_port(docker_component):
+        port = docker_component["config"]["port"]
+        return docker_component.remove("config").set("port", port)
+
+    instance = instance.transform(["local", "components", match_any],
+                                  move_port)
     return System.create(instance)
