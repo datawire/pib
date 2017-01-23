@@ -43,21 +43,22 @@ class Service(PClass):
     """A service."""
     name = field(type=str)
     image = field(type=DockerImage)
-    port = field(type=int)
+    port = field(type=int, optional=True)
     expose = field(type=Expose)
-    required_components = pmap_field(str, RequiredComponent)
+    requires = pmap_field(str, RequiredComponent)
 
 
 class Application(PClass):
     """An application composed of services and components."""
     services = pmap_field(str, Service)
-    required_components = pmap_field(str, RequiredComponent)
+    requires = pmap_field(str, RequiredComponent)
 
 
 class System(PClass):
     """A System loaded from an Envfile.yaml."""
-    local_deployment = field(type=LocalDeployment)
-    remote_deployment = pmap_field(str, str)  # TODO: define structure
+    local = field(type=LocalDeployment)
+    remote = pmap_field(str, str)  # TODO: define structure
+    application = field(type=Application)
 
 
 def load_env_file(path_to_repo):
@@ -65,4 +66,9 @@ def load_env_file(path_to_repo):
     with (path_to_repo / "Envfile.yaml").open() as f:
         data = safe_load(f.read())
     validate(ENVFILE_SCHEMA, data)
+    # At the moment the object model is pretty much 1-to-1 with the
+    # configuration format. In the future that might change; the idea is for
+    # the object model to be an abstraction rather than exactly the same as
+    # config format, so e.g. same object model might support two different
+    # versions of the config format.
     return System.create(safe_load(f.read()))
