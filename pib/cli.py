@@ -8,8 +8,8 @@ import os
 import click
 
 from .local import RunLocal
-from .stack import StackConfig
 from .schema import ValidationError
+from .envfile import load_envfile as _load_envfile
 from . import __version__
 
 # Pacify Click:
@@ -41,30 +41,29 @@ def start(logfile_path):
     return run_local
 
 
-def load_stack_config(config_path):
-    """Load a StackConfig."""
+def load_envfile(config_path):
+    """Load an Envfile.yaml."""
     try:
-        return StackConfig(Path(config_path))
+        return _load_envfile(Path(config_path))
     except ValidationError as e:
-        click.echo("Error loading Pibstack.yaml:")
+        click.echo("Error loading Envfile.yaml:")
         for error in e.errors:
             click.echo("---\n" + error)
         exit(1)
 
 
-def redeploy(run_local, stack_config):
+def redeploy(run_local, envfile, service_directory):
     """Redeploy currently checked out version of the code."""
-    tag_overrides = run_local.rebuild_docker_image(stack_config)
-    run_local.deploy(stack_config, tag_overrides)
+    tag_overrides = run_local.rebuild_docker_images(envfile, service_directory)
+    run_local.deploy(envfile, tag_overrides)
 
 
-def print_service_url(run_local, stack_config):
+def print_service_url(run_local):
     """Print the service URL."""
-    click.echo("Service URL: {}".format(
-        run_local.get_service_url(stack_config)))
+    click.echo("Application URL: {}".format(run_local.get_application_url()))
 
 
-def watch(run_local, stack_config):
+def watch(run_local, envfile, service_directory):
     """
     As code changes, rebuild Docker images for given repos in minikube Docker,
     then redeploy.
@@ -73,7 +72,7 @@ def watch(run_local, stack_config):
         # Kubernetes apply -f takes 20 seconds or so. If we were to redeploy
         # more often than that we'd get an infinite queue.
         sleep(20)
-        redeploy(run_local, stack_config)
+        redeploy(run_local, envfile, service_directory)
 
 
 opt_logfile = click.option(
@@ -90,8 +89,13 @@ opt_directory = click.option(
     type=click.Path(
         readable=True, file_okay=False, exists=True),
     default=".",
-    help=("Directory where Pibstack.yaml and Dockerfile can be " +
-          "found. Default: ."))
+    help=("Directory where services can be found. Default: ."))
+opt_envfile = click.option(
+    "--envfile",
+    nargs=1,
+    type=click.Path(readable=True, dir_okay=False, exists=True),
+    help=("Path to Envfile.yaml.")
+    )
 
 
 @click.group()
@@ -103,31 +107,27 @@ def cli():
 @cli.command("deploy", help="Deploy current Pibstack.yaml.")
 @opt_logfile
 @opt_directory
-def cli_deploy(logfile, directory):
-    stack_config = load_stack_config(Path(directory))
+@opt_envfile
+def cli_deploy(logfile, directory, envfile):
+    envfile = load_envfile(Path(envfile))
+    directory = Path(directory)
     run_local = start(logfile)
-    redeploy(run_local, stack_config)
-    print_service_url(run_local, stack_config)
+    redeploy(run_local, envfile, directory)
+    print_service_url(run_local)
 
 
-@cli.command("watch", help="Continuously deploy current Pibstack.yaml.")
+@cli.command("watch", help="Continuously deploy application specified " +
+             "by Envfile.yaml.")
 @opt_logfile
 @opt_directory
-def cli_watch(logfile, directory):
-    stack_config = load_stack_config(Path(directory))
+@opt_envfile
+def cli_watch(logfile, directory, envfile):
+    envfile = load_envfile(Path(directory))
+    directory = Path(directory)
     run_local = start(logfile)
-    redeploy(run_local, stack_config)
-    print_service_url(run_local, stack_config)
-    watch(run_local, stack_config)
-
-
-@cli.command("initialize-env", help="Initialize the full-system environment.")
-@opt_logfile
-@click.argument("git-repository")
-def cli_initialize_env(logfile, git_repository):
-    run_local = create_run_local(logfile)
-    run_local.initialize_environment(git_repository)
-    click.echo("Environment initialized.")
+    redeploy(run_local, envfile, directory)
+    print_service_url(run_local)
+    watch(run_local, envfile, directory)
 
 
 @cli.command("wipe", help="Wipe all locally deployed services.")
