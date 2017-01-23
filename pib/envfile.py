@@ -1,6 +1,5 @@
 """Code for parsing the Envfile."""
 
-from yaml import safe_load
 from pyrsistent import PClass, field, pvector_field, pmap_field
 
 from .schema import validate, ENVFILE_SCHEMA
@@ -61,14 +60,12 @@ class System(PClass):
     application = field(type=Application)
 
 
-def load_env_file(path_to_repo):
-    """Load Envfile from path, return AttrDict."""
-    with (path_to_repo / "Envfile.yaml").open() as f:
-        data = safe_load(f.read())
-    validate(ENVFILE_SCHEMA, data)
+def load_envfile(instance):
+    """Create System object from loaded Envfile.yaml."""
+    validate(ENVFILE_SCHEMA, instance)
     # At the moment the object model is pretty much 1-to-1 with the
     # configuration format. In the future that might change; the idea is for
     # the object model to be an abstraction rather than exactly the same as
     # config format, so e.g. same object model might support two different
     # versions of the config format.
-    return System.create(safe_load(f.read()))
+    return System.create(instance)

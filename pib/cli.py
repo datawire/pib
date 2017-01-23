@@ -6,6 +6,7 @@ from sys import stdout, exit
 import os
 
 import click
+from yaml import safe_load
 
 from .local import RunLocal
 from .schema import ValidationError
@@ -42,9 +43,10 @@ def start(logfile_path):
 
 
 def load_envfile(config_path):
-    """Load an Envfile.yaml."""
+    """Load an Envfile.yaml into a envfile.System given a Path."""
     try:
-        return _load_envfile(Path(config_path))
+        with config_path.open() as f:
+            return _load_envfile(safe_load(f.read()))
     except ValidationError as e:
         click.echo("Error loading Envfile.yaml:")
         for error in e.errors:
@@ -54,7 +56,8 @@ def load_envfile(config_path):
 
 def redeploy(run_local, envfile, services_directory):
     """Redeploy currently checked out version of the code."""
-    tag_overrides = run_local.rebuild_docker_images(envfile, services_directory)
+    tag_overrides = run_local.rebuild_docker_images(envfile,
+                                                    services_directory)
     run_local.deploy(envfile, tag_overrides)
 
 
@@ -93,9 +96,9 @@ opt_directory = click.option(
 opt_envfile = click.option(
     "--envfile",
     nargs=1,
-    type=click.Path(readable=True, dir_okay=False, exists=True),
-    help=("Path to Envfile.yaml.")
-    )
+    type=click.Path(
+        readable=True, dir_okay=False, exists=True),
+    help=("Path to Envfile.yaml."))
 
 
 @click.group()
@@ -116,8 +119,9 @@ def cli_deploy(logfile, directory, envfile):
     print_service_url(run_local)
 
 
-@cli.command("watch", help="Continuously deploy application specified " +
-             "by Envfile.yaml.")
+@cli.command(
+    "watch",
+    help="Continuously deploy application specified " + "by Envfile.yaml.")
 @opt_logfile
 @opt_directory
 @opt_envfile
