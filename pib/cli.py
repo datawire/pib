@@ -64,8 +64,8 @@ def print_service_url(run_local, envfile):
     """Print the service URL."""
     services, application_url = run_local.get_application_urls(envfile)
     for name, url in services.items():
-        click.echo("{}: {}\n".format(name, url))
-    click.echo("Main application: {}\n".format(application_url))
+        click.echo("{}: {}".format(name, url))
+    click.echo("Main application: {}".format(application_url))
 
 
 def watch(run_local, envfile, services_directory):
@@ -95,12 +95,10 @@ opt_directory = click.option(
         readable=True, file_okay=False, exists=True),
     default=".",
     help=("Directory where services can be found. Default: ."))
-opt_envfile = click.option(
-    "--envfile",
-    nargs=1,
+param_envfile = click.argument(
+    "ENVFILE_PATH",
     type=click.Path(
-        readable=True, dir_okay=False, exists=True),
-    help=("Path to Envfile.yaml."))
+        readable=True, dir_okay=False, exists=True))
 
 
 @click.group()
@@ -112,9 +110,9 @@ def cli():
 @cli.command("deploy", help="Deploy current Pibstack.yaml.")
 @opt_logfile
 @opt_directory
-@opt_envfile
-def cli_deploy(logfile, directory, envfile):
-    envfile = load_envfile(Path(envfile))
+@param_envfile
+def cli_deploy(logfile, directory, envfile_path):
+    envfile = load_envfile(Path(envfile_path))
     directory = Path(directory)
     run_local = start(logfile)
     redeploy(run_local, envfile, directory)
@@ -126,9 +124,9 @@ def cli_deploy(logfile, directory, envfile):
     help="Continuously deploy application specified " + "by Envfile.yaml.")
 @opt_logfile
 @opt_directory
-@opt_envfile
-def cli_watch(logfile, directory, envfile):
-    envfile = load_envfile(Path(directory))
+@param_envfile
+def cli_watch(logfile, directory, envfile_path):
+    envfile = load_envfile(Path(envfile_path))
     directory = Path(directory)
     run_local = start(logfile)
     redeploy(run_local, envfile, directory)

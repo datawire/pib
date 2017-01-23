@@ -226,7 +226,7 @@ class RunLocal(object):
 
     def deploy(self, envfile, tag_overrides):
         """Deploy current configuration to the minikube server."""
-        for service in envfile.application.services:
+        for service in envfile.application.services.values():
             self._deploy_service(service, envfile.application.requires,
                                  tag_overrides)
         self._deploy_components(envfile)
@@ -254,7 +254,6 @@ class RunLocal(object):
                             component.name.upper().replace("-", "_"),
                             value.upper()),
                         "valueFrom": {
-                            # TODO: private components can have name conflicts:
                             "configMapKeyRef": {
                                 "name": "{}-config".format(component.name),
                                 "key": value
@@ -276,12 +275,14 @@ class RunLocal(object):
             self._kubectl_delete(yaml_render(INGRESS, params))
 
     def _deploy_components(self, envfile):
-        components = envfile.application.requires + sum(
-            [service.requires for service in envfile.application.services], [])
-        for component in components:
+        required = list(envfile.application.requires.values()) + sum(
+            [list(service.requires.values()) for service in envfile.application.services.values()], [])
+        # TODO: private components can have name conflicts!
+        for requirement in required:
+            component = envfile.local.components[requirement.template]
             params = {}
-            params["name"] = component.name
-            params["port"] = component.config.port
+            params["name"] = requirement.name
+            params["port"] = component.port
             params["image"] = component.image
             params["service_type"] = "ClusterIP"
             for k8sobj in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
@@ -292,9 +293,9 @@ class RunLocal(object):
         :return: Tuple of service URLs as {name: url} and the main URL.
         """
         return {
-            service.name:
-            run_result([str(MINIKUBE), "service", "--url", service.name])
-            for service in envfile.application.services
+            service_name:
+            run_result([str(MINIKUBE), "service", "--url", service_name])
+            for service_name in envfile.application.services
         }, "http://{}/".format(run_result([str(MINIKUBE), "ip"]))
 
     def set_minikube_docker_env(self):
