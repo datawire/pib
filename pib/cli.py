@@ -52,9 +52,9 @@ def load_envfile(config_path):
         exit(1)
 
 
-def redeploy(run_local, envfile, service_directory):
+def redeploy(run_local, envfile, services_directory):
     """Redeploy currently checked out version of the code."""
-    tag_overrides = run_local.rebuild_docker_images(envfile, service_directory)
+    tag_overrides = run_local.rebuild_docker_images(envfile, services_directory)
     run_local.deploy(envfile, tag_overrides)
 
 
@@ -63,7 +63,7 @@ def print_service_url(run_local):
     click.echo("Application URL: {}".format(run_local.get_application_url()))
 
 
-def watch(run_local, envfile, service_directory):
+def watch(run_local, envfile, services_directory):
     """
     As code changes, rebuild Docker images for given repos in minikube Docker,
     then redeploy.
@@ -72,7 +72,7 @@ def watch(run_local, envfile, service_directory):
         # Kubernetes apply -f takes 20 seconds or so. If we were to redeploy
         # more often than that we'd get an infinite queue.
         sleep(20)
-        redeploy(run_local, envfile, service_directory)
+        redeploy(run_local, envfile, services_directory)
 
 
 opt_logfile = click.option(
