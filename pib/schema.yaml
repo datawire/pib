@@ -1,48 +1,96 @@
 $schema: http://json-schema.org/draft-04/schema#
-id: https://github.com/datawire/pib/stack.yaml
-title: Pibstack
-type: object
-properties:
-  pibstackVersion:
-    type: integer
-    enum: [1]
-  name:
-    type: string
-  image:
+
+definitions:
+  local:
     type: object
-    title: "Image"
     properties:
-      repository:
-        description: "The container image without a tag, e.g. example/myapp"
-        type: string
-      port:
-        type: integer
-    required: ["repository", "port"]
+      components:
+        additionalProperties:
+          oneOf:
+            - $ref: "#/definitions/docker-component"
     additionalProperties: false
-  expose:
+    required: ["components"]
+
+  docker-component:
     type: object
-    title: "Expose"
-    properties:
-      path:
-        type: string
-    required: ["path"]
     additionalProperties: false
+    required: ["type", "image", "config"]
+    properties:
+      type:
+        type: string
+        enum: ["docker"]
+      image:
+        type: string
+      config:
+        type: object
+        properties:
+          port:
+            type: integer
+        additionalProperties: false
+        required: ["port"]
+
   requires:
-    type: array
-    items:
+    type: object
+    additionalProperties:
       type: object
-      title: "Component"
       properties:
-        type:
-          type: string
-          enum: ["component"]
         template:
           type: string
-        config:
-          type: object
-        image:
-          type: string
-      required: ["type", "template"]
       additionalProperties: false
-required: ["pibstackVersion", "image", "name"]
+      required: ["template"]
+
+  service:
+    type: object
+    additionalProperties: false
+    required: ["image", "expose", "requires"]
+    properties:
+      image:
+        type: object
+        title: "Image"
+        properties:
+          repository:
+            description: "The container image without a tag, e.g. example/myapp"
+            type: string
+          tag:
+            type: string
+        required: ["repository", "tag"]
+        additionalProperties: false
+      port:
+        type: integer
+      expose:
+        type: object
+        title: "Expose"
+        properties:
+          path:
+            type: string
+        required: ["path"]
+        additionalProperties: false
+      requires:
+        $ref: "#/definitions/requires"
+
+
+title: Envfile
+type: object
+properties:
+  Envfile-version:
+    type: integer
+    enum: [1]
+  local:
+    $ref: "#/definitions/local"
+  remote:
+    additionalProperties:
+      # TODO: Make this enforce structure in later iteration
+      type: string
+  application:
+    type: object
+    properties:
+      requires:
+        $ref: "#/definitions/requires"
+      services:
+        type: object
+        additionalProperties:
+          $ref: "#/definitions/service"
+    additionalProperties: false
+    required: ["requires", "services"]
 additionalProperties: false
+required: ["Envfile-version", "application", "local"]
