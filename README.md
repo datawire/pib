@@ -7,33 +7,18 @@ Pib lets you develop services as systems, develop locally quickly, and be confid
 Let's say you have a repository with your web service.
 It has a `Dockerfile` that lets you run it in isolation (`docker run examplecom/yourapp`), but it also needs a database to be functional.
 
-Let's codify that relationship by creating a `Pibstack.yaml` in your service's git repository:
+Let's codify that relationship by creating a `Envfile.yaml` in elsewhere:
+
+TODO finish rewriting.
 
 ```yaml
----
-pibstackVersion: 1
-
-name: hello
-
-image:
-  repository: examplecom/yourapp
-  port: 5100
-
-expose:
-  path: /hello
-
-requires:
-  - template: postgres
-    type: component
-    image: "postgres:9.6"
-    config:
-      port: 5432
+... TODO ...
 ```
 
-Now in your service's git repository you can run:
+Now in your service's parent repository you can run:
 
 ```console
-$ pib watch &
+$ pib watch Envfile.yaml &
 ```
 
 This will:
