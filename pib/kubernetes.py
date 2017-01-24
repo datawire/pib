@@ -44,11 +44,29 @@ def envfile_to_k8s(envfile):
     :return: `PSet` of K8s objects.
     """
     result = set()
+    shared_addressconfigmaps = set()
+
+    def require_to_k8s(requirement, prefix=""):
+        component = envfile.local.components[requirement.template]
+        deployment = Deployment(
+            name=prefix + requirement.name + "-component",
+            docker_image=component.image,
+            port=component.port)
+        k8s_service = InternalService(deployment=deployment)
+        addrconfigmap = AddressConfigMap(backend_service=k8s_service)
+        return deployment, k8s_service, addrconfigmap
+
+    for shared_require in envfile.application.requires.values():
+        new_objs = require_to_k8s(shared_require)
+        result |= set(new_objs)
+        shared_addressconfigmaps.add(new_objs[-1])
+
     for service in envfile.application.services.values():
         deployment = Deployment(
             name=service.name,
             docker_image=service.image.image_name,
-            port=service.port)
+            port=service.port,
+            address_configmaps=shared_addressconfigmaps, )
         k8s_service = InternalService(deployment=deployment)
         ingress = Ingress(
             exposed_path=service.expose.path, backend_service=k8s_service)

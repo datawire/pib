@@ -74,10 +74,10 @@ def test_envfile_to_k8s_shared_component():
         ["application", "requires", "mycomponent"],
         RequiredComponent(
             name="mycomponent", template="database"))
-    system = SIMPLE_SYSTEM.transform(
-        ["local", "components", "mycomponent"],
+    system = system.transform(
+        ["local", "components", "database"],
         DockerComponent(
-            name="mycomponent", image="postgres:9.3", port=3535))
+            name="database", image="postgres:9.3", port=3535))
     expected_component_deployment = k8s.Deployment(
         name="mycomponent-component",
         docker_image="postgres:9.3",
