@@ -279,7 +279,7 @@ class RunLocal(object):
             [list(service.requires.values()) for service in envfile.application.services.values()], [])
         # TODO: private components can have name conflicts!
         for requirement in required:
-            component = envfile.local.components[requirement.template]
+            component = envfile.local.templates[requirement.template]
             params = {}
             params["name"] = requirement.name
             params["port"] = component.port

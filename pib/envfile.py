@@ -19,7 +19,7 @@ class DockerComponent(PClass):
 
 class LocalDeployment(PClass):
     """Runs services and components on Minikube."""
-    components = pmap_field(str, DockerComponent)
+    templates = pmap_field(str, DockerComponent)
 
 
 class RequiredComponent(PClass):
@@ -82,7 +82,7 @@ def load_envfile(instance):
 
     # 0. Drop unneeded fields:
     instance = instance.remove("Envfile-version")
-    instance = instance.transform(["local", "components", match_any, "type"],
+    instance = instance.transform(["local", "templates", match_any, "type"],
                                   discard)
 
     # 1. Some objects want to know their own name:
@@ -92,7 +92,7 @@ def load_envfile(instance):
             mapping = mapping.set(key, value.set("name", key))
         return mapping
 
-    instance = instance.transform(["local", "components"], add_name)
+    instance = instance.transform(["local", "templates"], add_name)
     instance = instance.transform(["application", "requires"], add_name)
     instance = instance.transform(["application", "services"], add_name)
     instance = instance.transform(
@@ -103,6 +103,6 @@ def load_envfile(instance):
         port = docker_component["config"]["port"]
         return docker_component.remove("config").set("port", port)
 
-    instance = instance.transform(["local", "components", match_any],
+    instance = instance.transform(["local", "templates", match_any],
                                   move_port)
     return System.create(instance)

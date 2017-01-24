@@ -45,13 +45,13 @@ application:
       requires:
         hello-db:
           # Locally we'll use a Docker image (see
-          # /local/components/postgresql-v96 below), but when the time comes to
+          # /local/templates/postgresql-v96 below), but when the time comes to
           # set up production you can can use AWS RDS or other production-grade
           # infrastructure.
           template: postgresql-v96
 
 local:
-  components:
+  templates:
     "postgresql-v96":
       type: docker
       image: postgres:9.6
