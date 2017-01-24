@@ -100,7 +100,31 @@ def test_envfile_to_k8s_shared_component():
     ])
 
 
-# Later, when we do K8s objects -> actual config:
-# - Envfile private components for different services but with same name don't
-#   have same k8s name.
-# - ...
+def test_envfile_k8s_shared_component_once():
+    """
+    Envfile shared components only appear once even if there are multiple
+    services.
+    """
+
+
+def test_envfile_k8s_private_component_is_private():
+    """
+    Envfile private components for different services but with same name don't
+    have same k8s name.
+    """
+
+
+def test_render_addressconfigmap():
+    """An AddressConfigMap renders to a k8s ConfigMap."""
+
+
+def test_render_deployment():
+    """A Deployment renders to a k8s Deployment."""
+
+
+def test_render_internalservice():
+    """An InternalService renders to a k8s Service."""
+
+
+def test_render_ingress():
+    """An Ingress renders to a k8s Ingress."""
