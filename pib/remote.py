@@ -3,7 +3,8 @@ import botocore.exceptions
 import json
 import os
 import shlex
-import subprocess
+from pathlib import Path
+from subprocess import Popen, PIPE, CalledProcessError
 
 
 def get_aws_acct_id():
@@ -18,35 +19,70 @@ def get_env():
         raise ValueError('Not an environment branch. Expected format env/$name but found {0}'.format(branch))
 
 
-class Terraform:
+def merge_dicts(defaults, overrides):
+    res = {}
+    res.update(defaults)
+    res.update(overrides)
+    return res
 
-    def __init__(self, name, state_bucket):
-        self.name = str(name).lower()
-        self.state = S3State(state_bucket, '{}.tfstate'.format(self.name))
 
-    def setup(self):
-        """Performs general Terraform setup for before running such as initializing remote state and pulling required
-        modules"""
+def run(cmd, allowed_exit_codes={0}, **kwargs):
+    if type(cmd) is str:
+        cmd = shlex.split(cmd)
 
-        Terraform.exec(shlex.split("remote config -backend=s3 -backend-config='bucket={0}' -backend-config='key={1}'".format(self.state.bucket, self.state.key)))
-        Terraform.exec(shlex.split('get terraform/'))
+    merged = merge_dicts({'stdout': PIPE, 'bufsize': 1, 'universal_newlines': True}, {})
+    with Popen(cmd, **merged) as proc:
+        for line in proc.stdout:
+            print(line, end='')
 
-    # def plan(self):
-    #     """Generate a Terraform execution plan for the current state."""
-    #     Terraform.exec('plan -out )
+    status = proc.returncode
+    if status not in allowed_exit_codes:
+        raise CalledProcessError(status, cmd, None)
 
-    @staticmethod
-    def exec(args):
-        from subprocess import Popen, PIPE, CalledProcessError
-        cmd = ['terraform'] + args
-        with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
-            for line in p.stdout:
-                print(line, end='')
+    return proc.returncode
 
-        if p.returncode != 0:
-            raise CalledProcessError(p.returncode, p.args)
 
-        return p.returncode
+class RemoteDeploy:
+
+    def __init__(self, config):
+        self.config = config
+        self.prepared = False
+
+    def prepare(self):
+        """Perform preparations before performing any type of remote operations, for example, fetching remote Terraform
+        state or downloading required modules."""
+        state_bucket = self.config.get('state_bucket')
+        environment = self.config.get('environment')
+        be_config = "-backend-config='bucket={0}' -backend-config='key={1}.tfstate'".format(state_bucket, environment)
+        run("terraform remote config -backend=s3 {}".format(be_config))
+        run("terraform get terraform/")
+        self.prepared = True
+
+    def generate_tfvars(self):
+        """Generate Terraform variables that are automatically inferred from the execution of pib remote, for example,
+        the environment name."""
+        return {'environment': self.config.get('environment')}
+
+    def plan(self):
+        tfvars_file = Path('terraform/terraform.tfvars.json')
+        tfvars = {}
+        if tfvars_file.exists():
+            with tfvars_file.open('r') as f:
+                tfvars = json.load(f)
+
+        tfvars = merge_dicts(tfvars, self.generate_tfvars())
+
+        with tfvars_file.open('w+') as f:
+            json.dump(tfvars, f)
+
+        res = run('terraform plan -var-file=terraform/terraform.tfvars.json -out terraform/plan.out --detailed-exitcode terraform/', allowed_exit_codes={0, 1, 2})
+
+    def apply(self):
+        run('terraform apply -var-file=terraform/terraform.tfvars.json terraform/plan.out')
+
+    def inject(self):
+        """Inject Terraform information into Kubernetes"""
+        pass
 
 
 class S3State:

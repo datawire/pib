@@ -3,11 +3,12 @@
 from pathlib import Path
 from time import sleep
 from sys import stdout, exit
-import os
 
 import click
+import os
 from yaml import safe_load
 
+from .remote import get_env, RemoteDeploy
 from .local import RunLocal
 from .schema import ValidationError
 from .envfile import load_envfile as _load_envfile
@@ -107,6 +108,34 @@ def cli():
     """pib: run a Pibstack.yaml file locally."""
 
 
+@click.group()
+def remote():
+    """pib remote: deploy remotely (temp cmd we figure out where this belongs)"""
+
+
+@remote.command('plan', help='Plan infrastructure changes')
+@param_envfile
+def remote_plan(envfile_path):
+    from urllib.parse import urlparse
+    envfile = load_envfile(Path(envfile_path))
+    env_name = get_env()
+    url = urlparse(envfile.remote.state)
+    deployer = RemoteDeploy({'state_bucket': url.netloc, 'environment': env_name})
+    deployer.prepare()
+    deployer.plan()
+
+
+@remote.command('apply', help='Plan infrastructure changes')
+@param_envfile
+def remote_apply(envfile_path):
+    from urllib.parse import urlparse
+    envfile = load_envfile(Path(envfile_path))
+    env_name = get_env()
+    url = urlparse(envfile.remote.state)
+    deployer = RemoteDeploy({'state_bucket': url.netloc, 'environment': env_name})
+    deployer.apply()
+
+
 @cli.command("deploy", help="Deploy current Pibstack.yaml.")
 @opt_logfile
 @opt_directory
@@ -147,4 +176,5 @@ def cli_wipe(logfile):
 
 
 def main():
+    cli.add_command(remote)
     cli()  # pylint: disable=E1120,E1123
