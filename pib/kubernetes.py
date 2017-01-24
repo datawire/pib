@@ -46,7 +46,7 @@ def envfile_to_k8s(envfile):
     result = set()
     shared_addressconfigmaps = set()
 
-    def require_to_k8s(requirement, prefix=""):
+    def require_to_k8s(requirement, prefix):
         component = envfile.local.components[requirement.template]
         deployment = Deployment(
             name=prefix + requirement.name + "-component",
@@ -56,19 +56,32 @@ def envfile_to_k8s(envfile):
         addrconfigmap = AddressConfigMap(backend_service=k8s_service)
         return deployment, k8s_service, addrconfigmap
 
+    # Shared components are shared, so no prefix:
     for shared_require in envfile.application.requires.values():
-        new_objs = require_to_k8s(shared_require)
+        new_objs = require_to_k8s(shared_require, prefix="")
         result |= set(new_objs)
         shared_addressconfigmaps.add(new_objs[-1])
 
+    k8s_services = {}
     for service in envfile.application.services.values():
+        # Private components should be namespaced based on the service they're
+        # part of, so they get prefix with service name:
+        component_prefix = "{}-".format(service.name)
+        private_addressconfigmaps = set()
+        for private_require in service.requires.values():
+            new_objs = require_to_k8s(private_require, prefix=component_prefix)
+            result |= set(new_objs)
+            private_addressconfigmaps.add(new_objs[-1])
+
         deployment = Deployment(
             name=service.name,
             docker_image=service.image.image_name,
             port=service.port,
-            address_configmaps=shared_addressconfigmaps, )
+            address_configmaps=shared_addressconfigmaps | private_addressconfigmaps)
         k8s_service = InternalService(deployment=deployment)
+        k8s_services[service.name] = k8s_service
         ingress = Ingress(
             exposed_path=service.expose.path, backend_service=k8s_service)
         result |= {deployment, k8s_service, ingress}
+
     return pset(result)

@@ -39,8 +39,8 @@ def test_envfile_to_k8s_private_component():
         ["application", "services", "myservice", "requires", "mycomponent"],
         RequiredComponent(
             name="mycomponent", template="database"))
-    system = SIMPLE_SYSTEM.transform(
-        ["local", "components", "mycomponent"],
+    system = system.transform(
+        ["local", "components", "database"],
         DockerComponent(
             name="mycomponent", image="postgres:9.3", port=3535))
     expected_component_deployment = k8s.Deployment(
