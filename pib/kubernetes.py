@@ -47,7 +47,7 @@ def envfile_to_k8s(envfile):
     shared_addressconfigmaps = set()
 
     def require_to_k8s(requirement, prefix):
-        component = envfile.local.components[requirement.template]
+        component = envfile.local.templates[requirement.template]
         deployment = Deployment(
             name=prefix + requirement.name + "-component",
             docker_image=component.image,

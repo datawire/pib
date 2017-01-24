@@ -21,7 +21,7 @@ INSTANCE = """\
 Envfile-version: 1
 
 local:
-  components:
+  templates:
     "redis-v3":
       type: docker
       image: redis/redis:3
@@ -80,7 +80,7 @@ def test_load_valid_instance():
                     })
             }),
         remote={"type": "kubernetes"},
-        local=LocalDeployment(components={
+        local=LocalDeployment(templates={
             "redis-v3": DockerComponent(
                 name="redis-v3", image="redis/redis:3", port=6379),
             "postgresql-v96": DockerComponent(

@@ -4,12 +4,12 @@ definitions:
   local:
     type: object
     properties:
-      components:
+      templates:
         additionalProperties:
           oneOf:
             - $ref: "#/definitions/docker-component"
     additionalProperties: false
-    required: ["components"]
+    required: ["templates"]
 
   docker-component:
     type: object
