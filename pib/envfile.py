@@ -33,6 +33,11 @@ class DockerImage(PClass):
     repository = field(mandatory=True, type=str)
     tag = field(mandatory=True, type=str)
 
+    @property
+    def image_name(self):
+        """Return <repository>:<tag>."""
+        return "{}:{}".format(self.repository, self.tag)
+
 
 class Expose(PClass):
     """How a service should be exposed."""
@@ -57,7 +62,8 @@ class Application(PClass):
 
 class System(PClass):
     """A System loaded from an Envfile.yaml."""
-    local = field(mandatory=True, type=LocalDeployment)
+    local = field(
+        mandatory=True, type=LocalDeployment, initial=LocalDeployment())
     remote = pmap_field(str, str)  # TODO: define structure
     application = field(mandatory=True, type=Application)
 

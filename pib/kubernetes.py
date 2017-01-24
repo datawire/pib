@@ -1,6 +1,6 @@
 """Kubernetes integration for Pib."""
 
-from pyrsistent import PClass, field, pset_field
+from pyrsistent import PClass, field, pset_field, pset
 
 
 class AddressConfigMap(PClass):
@@ -10,9 +10,9 @@ class AddressConfigMap(PClass):
     deployments.
     """
     # TODO: When we support external services (e.g. AWS RDS) this may point at
-    # those as well:
-    backend_service = field(
-        mandatory=True, type="pib.kubernetes.InternalService")
+    # those as well.
+    # type=InternalService blows up pyrsistent :(
+    backend_service = field(mandatory=True)
 
 
 class Deployment(PClass):
@@ -20,7 +20,6 @@ class Deployment(PClass):
     name = field(mandatory=True, type=str)
     docker_image = field(mandatory=True, type=str)
     port = field(mandatory=True, type=int)
-    replicas = field(mandatory=True, type=int)
     address_configmaps = pset_field(AddressConfigMap)
 
 
@@ -36,3 +35,22 @@ class Ingress(PClass):
     """Kubernetes Ingress representation."""
     exposed_path = field(mandatory=True, type=str)
     backend_service = field(mandatory=True, type=InternalService)
+
+
+def envfile_to_k8s(envfile):
+    """Convert a loaded Envfile.yaml into Kubernetes objects.
+
+    :param envfile System: Envfile to convert.
+    :return: `PSet` of K8s objects.
+    """
+    result = set()
+    for service in envfile.application.services.values():
+        deployment = Deployment(
+            name=service.name,
+            docker_image=service.image.image_name,
+            port=service.port)
+        k8s_service = InternalService(deployment=deployment)
+        ingress = Ingress(
+            exposed_path=service.expose.path, backend_service=k8s_service)
+        result |= {deployment, k8s_service, ingress}
+    return pset(result)
