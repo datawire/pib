@@ -9,7 +9,6 @@ class AddressConfigMap(PClass):
     This will be used to give a envfile service the addresses of envfile
     deployments.
     """
-    name = field(mandatory=True, type=str)
     # TODO: When we support external services (e.g. AWS RDS) this may point at
     # those as well:
     backend_service = field(
@@ -30,13 +29,10 @@ class InternalService(PClass):
 
     This can represent either an envfile service or an envfile component.
     """
-    name = field(mandatory=True, type=str)
-    type = field(mandatory=True, type=str)  # Either ClusterIP or NodePort
     deployment = field(mandatory=True, type=Deployment)
 
 
 class Ingress(PClass):
     """Kubernetes Ingress representation."""
-    name = field(mandatory=True, type=str)
     exposed_path = field(mandatory=True, type=str)
     backend_service = field(mandatory=True, type=InternalService)
