@@ -37,8 +37,7 @@ $ mkdir environments
 $ mkdir hello
 $ $EDITOR hello/Dockerfile
 $ $EDITOR environments/Envfile.yaml
-$ pib init --services-path=~/work
-$ pib deploy hello
+$ pib deploy environments/Envfile.yaml
 ```
 
 Later `~/work/environments` and `~/work/hello` can be pushed in to version control.
@@ -51,10 +50,10 @@ Presuming this is first time using `pib`, download it, then:
 $ cd ~/work
 $ git clone git@github.com:myorg/environments.git
 $ git clone git@github.com:myorg/hello.git
-$ pib init --services-path=~/work
-$ pib deploy hello  # deploys 'hello' service
+$ pib deploy environments/Envfile.yaml
 'hello' deployed from local checkout.
-$ pib deploy --all  # deploys everything in Envfile.yaml
+'anotherservice' not available as local checkout, so deploying image with tag 1.2.1.
+$ pib deploy environments/Envfile.yaml --service=hello
 'hello' deployed from local checkout.
 'anotherservice' not available as local checkout, so deploying image with tag 1.2.1.
 ```
