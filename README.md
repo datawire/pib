@@ -9,6 +9,8 @@ That means:
 * Your production environment can use infrastructure like AWS RDS.
 * You can trust that local development and production are still as similar as possible, because they both run off the same system-level configuration.
 
+## Warning: work-in-progress, changing rapidly
+
 ## Quickstart
 
 Let's say you have a repository with one of your web services.
