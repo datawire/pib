@@ -81,7 +81,60 @@ This will:
 Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_COMPONENT_HOST` and `HELLO_DB_COMPONENT_PORT`.
 In general the environment variables are of the form `<template>_COMPONENT_HOST/PORT` where `template` is the template chosen in the requirement.
 
-## What is Pib?
+### Multiple services
+
+Pib allows you define multiple services for your application, each with its own private required components.
+You can also share components across services.
+In the following example `Envfile.yaml` you can see two services that share the same ElasticSearch:
+
+```yaml
+Envfile-version: 1
+
+application:
+  requires:
+    logs-es: # <--- this component will be accessible to all services
+      template: elasticsearch
+  services:
+    hello:
+      service-a:
+        repository: examplecom/service-a
+        tag: "1.0"
+      port: 5100
+      expose:
+        path: /a
+      requires:
+        hello-db:
+          template: postgresql-v96
+    service-b:
+      image:
+        repository: examplecom/service-b
+        tag: "1.2"
+      port: 80
+      expose:
+        path: /b
+      requires: []
+
+local:
+  templates:
+    "postgresql-v96":
+      type: docker
+      image: postgres:9.6
+      config:
+        port: 5432
+    elasticsearch:
+      type: docker
+      image: elasticsearch:latest
+      config:
+        port: 9200
+```
+
+### Production
+
+
+### Multiple environments
+
+
+## More about Pib
 
 Pib is a toolchain for easily running and deploying modern services, from web applications to microservices.
 
