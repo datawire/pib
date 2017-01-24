@@ -130,9 +130,30 @@ local:
 
 ### Production
 
+So far we've seen configuration for local development only.
+But Pib allows you to use the same configuration to run your services in your operational environments... while allowing you to use the infrastructure of your choice.
+While Pib builds on modern container technology like Docker and Kuberentes, it does not lock you in to that ecosystem for production usage.
+For example, you can use Pib to create a AWS RDS database for production use.
+
+The way this works is by hooking up the `application` configuration in the `Envfile.yaml` to a tool that is built on Terraform.
+This tool is triggered commits to the Git repository where the `Envfile.yaml` sits:
+
+1. It deploys the necessary infrastructure using Terraform (e.g. new AWS RDS).
+2. It injects the location of this infrastructure into Kubernetes.
+3. It deploys the services to your production Kubernetes cluster, using the image tags from the configuration.
+
+The CI pipelines for individual services can update the tag in this repository whenever a new version is built.
+Here is a sample workflow:
+
+1. Code is changed in `hello` git repo and merged to `master`.
+2. The `hello` CI tool rebuilds the `examplecom/hello` Docker image with a new tag, pushes it to the Docker registry and then updates the `Envfile.yaml` in the `pib-environments` repository with the new tag.
+3. This triggers a CI build on `pib-environments` which calls `pib-cloud`, which redeploys to AWS infrastructure using Terraform, and to Kubernetes using the new service.
 
 ### Multiple environments
 
+You might have multiple operational environments.
+For example, one for paid customers and one for free users, or one staging and one production.
+Pib supports this by having multiple branches in the `pib-environments` git repository, e.g. `environments/production` and `environments/staging`.
 
 ## More about Pib
 
@@ -146,9 +167,6 @@ A pib configuration for your services allows you to:
 1. Run a single service and its dependencies locally, with support for a quick feedback loop.
    Local runtime is in a production-like local Kubernetes cluster (using minikube).
 2. Run all the multiple services that compose your application together, spinning up a fully functional application.
-3. Use the same configuration to run your services in production... while allowing you to use the infrastructure of your choice.
-   While Pib builds on modern container technology like Docker and Kuberentes, it does not lock you in to that ecosystem for production usage.
-   For example, you can use Pib to create a AWS RDS database for production use.
 
 Features include:
 
