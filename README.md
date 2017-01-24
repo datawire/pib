@@ -95,8 +95,7 @@ application:
     logs-es: # <--- this component will be accessible to all services
       template: elasticsearch
   services:
-    hello:
-      service-a:
+    service-a:
         repository: examplecom/service-a
         tag: "1.0"
       port: 5100
