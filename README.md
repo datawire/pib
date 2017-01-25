@@ -33,7 +33,7 @@ Later you can add more services, shared components, and more.
 Envfile-version: 1
 
 application:
-  requires: []
+  requires: {}
   services:
     hello:  # <-- this matches the directory name your service is in
       image:
@@ -111,7 +111,7 @@ application:
       port: 80
       expose:
         path: /b
-      requires: []
+      requires: {}
 
 local:
   templates:
