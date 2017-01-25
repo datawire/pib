@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import check_call, check_output, CalledProcessError
 from tempfile import NamedTemporaryFile
 from time import sleep, time
-from .kubernetes import envfile_to_k8s
+from .kubernetes import envfile_to_k8s, RenderingOptions
 
 from yaml import safe_dump
 
@@ -129,8 +129,9 @@ class RunLocal(object):
     def deploy(self, envfile, tag_overrides):
         """Deploy current configuration to the minikube server."""
         # TODO: missing ability to remove previous iteration of k8s objects!
+        options = RenderingOptions(tag_overrides=tag_overrides)
         for k8s_config in envfile_to_k8s(envfile):
-            self._kubectl_apply(safe_dump(k8s_config.render()))
+            self._kubectl_apply(safe_dump(k8s_config.render(options)))
 
     def get_application_urls(self, envfile):
         """

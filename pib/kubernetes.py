@@ -1,6 +1,13 @@
 """Kubernetes integration for Pib."""
 
-from pyrsistent import PClass, field, pset_field, pset
+from pyrsistent import PClass, field, pset_field, pset, pmap_field
+
+
+class RenderingOptions(PClass):
+    """Define how objects should be rendered."""
+    tag_overrides = pmap_field(str,
+                               str)  # map service name to Docker image tag
+    # TODO: eventually ClusterIP vs NodePort can go here
 
 
 class AddressConfigMap(PClass):
@@ -14,7 +21,7 @@ class AddressConfigMap(PClass):
     # type=InternalService blows up pyrsistent :(
     backend_service = field(mandatory=True)
 
-    def render(self):
+    def render(self, options):
         """Convert to a Kubernetes YAML/JSON config (as Python objects)."""
         return {
             "apiVersion": "v1",
@@ -36,7 +43,13 @@ class Deployment(PClass):
     port = field(mandatory=True, type=int)
     address_configmaps = pset_field(AddressConfigMap)
 
-    def render(self):
+    def render(self, options):
+        docker_image = self.docker_image
+        tag = options.tag_overrides.get(self.name)
+        if tag is not None:
+            image_parts = self.docker_image.split(":")
+            image_parts[-1] = tag
+            docker_image = ":".join(image_parts)
         result = {
             'spec': {
                 'replicas': 1,
@@ -48,7 +61,7 @@ class Deployment(PClass):
                             'ports': [{
                                 'containerPort': self.port,
                             }],
-                            'image': self.docker_image
+                            'image': docker_image,
                         }]
                     },
                     'metadata': {
@@ -92,8 +105,8 @@ class InternalService(PClass):
     """
     deployment = field(mandatory=True, type=Deployment)
 
-    def render(self):
-        rendered_deployment = self.deployment.render()
+    def render(self, options):
+        rendered_deployment = self.deployment.render(options)
         return {
             "apiVersion": "v1",
             "kind": "Service",
@@ -116,7 +129,7 @@ class Ingress(PClass):
     exposed_path = field(mandatory=True, type=str)
     backend_service = field(mandatory=True, type=InternalService)
 
-    def render(self):
+    def render(self, options):
         name = self.backend_service.deployment.name
         return {
             "apiVersion": "extensions/v1beta1",

@@ -183,7 +183,7 @@ def test_render_addressconfigmap():
     """An AddressConfigMap renders to a k8s ConfigMap."""
     addrconfigmap = k8s.AddressConfigMap(backend_service=k8s.InternalService(
         deployment=SIMPLE_K8S_DEPLOYMENT))
-    assert addrconfigmap.render() == {
+    assert addrconfigmap.render(k8s.RenderingOptions()) == {
         "apiVersion": "v1",
         "kind": "ConfigMap",
         "metadata": {
@@ -198,7 +198,7 @@ def test_render_addressconfigmap():
 
 def test_render_deployment():
     """A Deployment renders to a k8s Deployment."""
-    assert SIMPLE_K8S_DEPLOYMENT.render() == {
+    assert SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions()) == {
         'spec': {
             'replicas': 1,
             'template': {
@@ -238,7 +238,7 @@ def test_render_deployment_with_configmaps():
             "port", 5678)))
     deployment_with_configmap = SIMPLE_K8S_DEPLOYMENT.set("address_configmaps",
                                                           {addrconfigmap})
-    expected = SIMPLE_K8S_DEPLOYMENT.render()
+    expected = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
     env = [
         {
             "name": "MY_COMPONENT_HOST",
@@ -260,13 +260,21 @@ def test_render_deployment_with_configmaps():
         },
     ]
     expected["spec"]["template"]["spec"]["containers"][0]["env"] = env
-    assert deployment_with_configmap.render() == expected
+    assert deployment_with_configmap.render(k8s.RenderingOptions()) == expected
+
+
+def test_render_deployment_with_tag_overrides():
+    """Tag overrides override the tag in the config when rendering a Deployment."""
+    options = k8s.RenderingOptions(tag_overrides={"myservice": "customtag"})
+    assert SIMPLE_K8S_DEPLOYMENT.render(options)["spec"]["template"]["spec"][
+        "containers"][0]["image"] == "examplecom/myservice:customtag"
 
 
 def test_render_internalservice():
     """An InternalService renders to a k8s Service."""
-    deployment_rendered = SIMPLE_K8S_DEPLOYMENT.render()
-    rendered = k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT).render()
+    deployment_rendered = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
+    rendered = k8s.InternalService(
+        deployment=SIMPLE_K8S_DEPLOYMENT).render(k8s.RenderingOptions())
     assert len(rendered) == 4
     assert rendered["apiVersion"] == "v1"
     assert rendered["kind"] == "Service"
@@ -288,7 +296,7 @@ def test_render_ingress():
     ingress = k8s.Ingress(
         exposed_path="/abc",
         backend_service=k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT))
-    assert ingress.render() == {
+    assert ingress.render(k8s.RenderingOptions()) == {
         "apiVersion": "extensions/v1beta1",
         "kind": "Ingress",
         "metadata": {
