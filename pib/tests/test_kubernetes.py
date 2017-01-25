@@ -212,6 +212,7 @@ def test_render_deployment():
                             }
                         }],
                         'image': "examplecom/myservice:1.2",
+                        'env': [],
                     }]
                 },
                 'metadata': {
@@ -230,6 +231,38 @@ def test_render_deployment():
         },
         'apiVersion': 'extensions/v1beta1'
     }
+
+
+def test_render_deployment_with_configmaps():
+    """A Deployment with AddressConfigMaps turns them into env variables."""
+    addrconfigmap = k8s.AddressConfigMap(backend_service=k8s.InternalService(
+        deployment=SIMPLE_K8S_DEPLOYMENT.set("name", "my-component").set(
+            "port", 5678)))
+    deployment_with_configmap = SIMPLE_K8S_DEPLOYMENT.set("address_configmaps",
+                                                          {addrconfigmap})
+    expected = SIMPLE_K8S_DEPLOYMENT.render()
+    env = [
+        {
+            "name": "MY_COMPONENT_HOST",
+            "valueFrom": {
+                "configMapKeyRef": {
+                    "name": "my-component",
+                    "key": "host",
+                }
+            }
+        },
+        {
+            "name": "MY_COMPONENT_PORT",
+            "valueFrom": {
+                "configMapKeyRef": {
+                    "name": "my-component",
+                    "key": "port",
+                }
+            }
+        },
+    ]
+    expected["spec"]["template"]["spec"]["containers"][0]["env"] = env
+    assert deployment_with_configmap.render() == expected
 
 
 def test_render_internalservice():

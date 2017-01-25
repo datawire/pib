@@ -37,7 +37,7 @@ class Deployment(PClass):
     address_configmaps = pset_field(AddressConfigMap)
 
     def render(self):
-        return {
+        result = {
             'spec': {
                 'replicas': 1,
                 'template': {
@@ -69,6 +69,22 @@ class Deployment(PClass):
             },
             'apiVersion': 'extensions/v1beta1'
         }
+        env = []
+        for configmap in self.address_configmaps:
+            for value in ["host", "port"]:
+                name = configmap.backend_service.deployment.name
+                env.append({
+                    "name": "{}_{}".format(name.upper().replace("-", "_"),
+                                           value.upper()),
+                    "valueFrom": {
+                        "configMapKeyRef": {
+                            "name": name,
+                            "key": value
+                        }
+                    }
+                })
+        result["spec"]["template"]["spec"]["containers"][0]["env"] = env
+        return result
 
 
 class InternalService(PClass):
