@@ -53,7 +53,8 @@ def test_envfile_to_k8s_private_component():
     expected_component_service = k8s.InternalService(
         deployment=expected_component_deployment)
     expected_addrconfigmap = k8s.AddressConfigMap(
-        backend_service=expected_component_service)
+        backend_service=expected_component_service,
+        component_name="mycomponent")
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
         ["address_configmaps"], {expected_addrconfigmap})
     expected_service = k8s.InternalService(deployment=expected_deployment)
@@ -86,7 +87,8 @@ def test_envfile_to_k8s_shared_component():
     expected_component_service = k8s.InternalService(
         deployment=expected_component_deployment)
     expected_addrconfigmap = k8s.AddressConfigMap(
-        backend_service=expected_component_service)
+        backend_service=expected_component_service,
+        component_name="mycomponent")
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
         ["address_configmaps"], {expected_addrconfigmap})
     expected_service = k8s.InternalService(deployment=expected_deployment)
@@ -181,8 +183,9 @@ def test_envfile_k8s_private_component_is_private():
 
 def test_render_addressconfigmap():
     """An AddressConfigMap renders to a k8s ConfigMap."""
-    addrconfigmap = k8s.AddressConfigMap(backend_service=k8s.InternalService(
-        deployment=SIMPLE_K8S_DEPLOYMENT))
+    addrconfigmap = k8s.AddressConfigMap(
+        backend_service=k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT),
+        component_name="the-component")
     assert addrconfigmap.render(k8s.RenderingOptions()) == {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -233,27 +236,29 @@ def test_render_deployment():
 
 def test_render_deployment_with_configmaps():
     """A Deployment with AddressConfigMaps turns them into env variables."""
-    addrconfigmap = k8s.AddressConfigMap(backend_service=k8s.InternalService(
-        deployment=SIMPLE_K8S_DEPLOYMENT.set("name", "my-component").set(
-            "port", 5678)))
+    addrconfigmap = k8s.AddressConfigMap(
+        component_name="thedb",
+        backend_service=k8s.InternalService(
+            deployment=SIMPLE_K8S_DEPLOYMENT.set(
+                "name", "myservice-thedb-component").set("port", 5678)))
     deployment_with_configmap = SIMPLE_K8S_DEPLOYMENT.set("address_configmaps",
                                                           {addrconfigmap})
     expected = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
     env = [
         {
-            "name": "MY_COMPONENT_HOST",
+            "name": "THEDB_COMPONENT_HOST",
             "valueFrom": {
                 "configMapKeyRef": {
-                    "name": "my-component",
+                    "name": "myservice-thedb-component",
                     "key": "host",
                 }
             }
         },
         {
-            "name": "MY_COMPONENT_PORT",
+            "name": "THEDB_COMPONENT_PORT",
             "valueFrom": {
                 "configMapKeyRef": {
-                    "name": "my-component",
+                    "name": "myservice-thedb-component",
                     "key": "port",
                 }
             }

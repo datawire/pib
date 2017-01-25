@@ -20,6 +20,7 @@ class AddressConfigMap(PClass):
     # those as well.
     # type=InternalService blows up pyrsistent :(
     backend_service = field(mandatory=True)
+    component_name = field(mandatory=True, type=str)  # original component name
 
     def render(self, options):
         """Convert to a Kubernetes YAML/JSON config (as Python objects)."""
@@ -83,13 +84,20 @@ class Deployment(PClass):
         env = []
         for configmap in self.address_configmaps:
             for value in ["host", "port"]:
-                name = configmap.backend_service.deployment.name
+                # Notice that the environment variables are based on the
+                # original name of the component, not the namespaced Kubernetes
+                # variant; from the service's point of view the original name
+                # is what counts.
+                name = configmap.component_name
                 env.append({
-                    "name": "{}_{}".format(name.upper().replace("-", "_"),
-                                           value.upper()),
+                    "name":
+                    "{}_COMPONENT_{}".format(name.upper().replace("-", "_"),
+                                             value.upper()),
                     "valueFrom": {
                         "configMapKeyRef": {
-                            "name": name,
+                            # ConfigMap k8s object has same name as the
+                            # Deployment it points at:
+                            "name": configmap.backend_service.deployment.name,
                             "key": value
                         }
                     }
@@ -170,7 +178,8 @@ def envfile_to_k8s(envfile):
             docker_image=component.image,
             port=component.port)
         k8s_service = InternalService(deployment=deployment)
-        addrconfigmap = AddressConfigMap(backend_service=k8s_service)
+        addrconfigmap = AddressConfigMap(
+            backend_service=k8s_service, component_name=requirement.name)
         return deployment, k8s_service, addrconfigmap
 
     # Shared components are shared, so no prefix:
