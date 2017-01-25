@@ -4,8 +4,8 @@ from pyrsistent import pset
 
 from ..kubernetes import envfile_to_k8s
 from .. import kubernetes as k8s
-from ..envfile import (System, DockerImage, Application,
-                       DockerComponent, RequiredComponent, Expose, Service)
+from ..envfile import (System, DockerImage, Application, DockerComponent,
+                       RequiredComponent, Expose, Service, LocalDeployment)
 
 SIMPLE_SYSTEM = System(application=Application(services={
     "myservice": Service(
@@ -79,9 +79,7 @@ def test_envfile_to_k8s_shared_component():
         DockerComponent(
             name="database", image="postgres:9.3", port=3535))
     expected_component_deployment = k8s.Deployment(
-        name="mycomponent-component",
-        docker_image="postgres:9.3",
-        port=3535)
+        name="mycomponent-component", docker_image="postgres:9.3", port=3535)
     expected_component_service = k8s.InternalService(
         deployment=expected_component_deployment)
     expected_addrconfigmap = k8s.AddressConfigMap(
@@ -105,6 +103,35 @@ def test_envfile_k8s_shared_component_once():
     Envfile shared components only appear once even if there are multiple
     services.
     """
+    system = System(
+        application=Application(
+            services={
+                "myservice": Service(
+                    name="myservice",
+                    image=DockerImage(
+                        repository="examplecom/myservice", tag="1.2"),
+                    port=1234,
+                    expose=Expose(path="/abc")),
+                "myservice2": Service(
+                    name="myservice2",
+                    image=DockerImage(
+                        repository="examplecom/myservice", tag="1.2"),
+                    port=1234,
+                    expose=Expose(path="/abcd"))
+            },
+            requires={
+                "mycomponent": RequiredComponent(
+                    name="mycomponent", template="database")
+            }, ),
+        local=LocalDeployment(templates={
+            "database": DockerComponent(
+                name="database", image="postgres:9.3", port=3535)
+        }))
+    k8s_objects = envfile_to_k8s(system)
+    assert len([
+        o for o in k8s_objects
+        if isinstance(o, k8s.Deployment) and "mycomponent" in o.name
+    ]) == 1
 
 
 def test_envfile_k8s_private_component_is_private():
@@ -112,6 +139,41 @@ def test_envfile_k8s_private_component_is_private():
     Envfile private components for different services but with same name don't
     have same k8s name.
     """
+    system = System(
+        application=Application(services={
+            "myservice": Service(
+                name="myservice",
+                image=DockerImage(
+                    repository="examplecom/myservice", tag="1.2"),
+                port=1234,
+                expose=Expose(path="/abc"),
+                requires={
+                    "mycomponent": RequiredComponent(
+                        name="mycomponent", template="database")
+                }),
+            "myservice2": Service(
+                name="myservice2",
+                image=DockerImage(
+                    repository="examplecom/myservice", tag="1.2"),
+                port=1234,
+                expose=Expose(path="/abcd"),
+                requires={
+                    "mycomponent": RequiredComponent(
+                        name="mycomponent", template="database")
+                })
+        }),
+        local=LocalDeployment(templates={
+            "database": DockerComponent(
+                name="database", image="postgres:9.3", port=3535)
+        }))
+    k8s_objects = envfile_to_k8s(system)
+    assert {
+        o.name
+        for o in k8s_objects
+        if isinstance(o, k8s.Deployment) and "mycomponent" in o.name
+    } == {
+        "myservice-mycomponent-component", "myservice2-mycomponent-component"
+    }
 
 
 def test_render_addressconfigmap():
