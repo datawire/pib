@@ -1,4 +1,7 @@
-"""Tests for pib.kubernetes."""
+"""Tests for pib.kubernetes.
+
+TODO: assumes local-only!
+"""
 
 from pyrsistent import pset
 
@@ -178,15 +181,99 @@ def test_envfile_k8s_private_component_is_private():
 
 def test_render_addressconfigmap():
     """An AddressConfigMap renders to a k8s ConfigMap."""
+    addrconfigmap = k8s.AddressConfigMap(backend_service=k8s.InternalService(
+        deployment=SIMPLE_K8S_DEPLOYMENT))
+    assert addrconfigmap.render() == {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "myservice",
+        },
+        "data": {
+            "host": "myservice",
+            "port": 1234,
+        }
+    }
 
 
 def test_render_deployment():
     """A Deployment renders to a k8s Deployment."""
+    assert SIMPLE_K8S_DEPLOYMENT.render() == {
+        'spec': {
+            'replicas': 1,
+            'template': {
+                'spec': {
+                    'containers': [{
+                        'name': "myservice",
+                        'imagePullPolicy': 'IfNotPresent',
+                        'ports': [{
+                            'containerPort': {
+                                'port': 1234,
+                            }
+                        }],
+                        'image': "examplecom/myservice:1.2",
+                    }]
+                },
+                'metadata': {
+                    'labels': {
+                        'name': "myservice",
+                    }
+                }
+            }
+        },
+        'kind': 'Deployment',
+        'metadata': {
+            'labels': {
+                'name': "myservice",
+            },
+            'name': "myservice",
+        },
+        'apiVersion': 'extensions/v1beta1'
+    }
 
 
 def test_render_internalservice():
     """An InternalService renders to a k8s Service."""
+    deployment_rendered = SIMPLE_K8S_DEPLOYMENT.render()
+    rendered = k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT).render()
+    assert len(rendered) == 4
+    assert rendered["apiVersion"] == "v1"
+    assert rendered["kind"] == "Service"
+    assert rendered["metadata"] == deployment_rendered["metadata"]
+    expected_spec = {
+        "type": "NodePort",  # TODO: only for local minikube setup!
+        "ports": [{
+            "port": 1234,
+            "targetPort": 1234,
+            "protocol": "TCP"
+        }]
+    }
+    expected_spec["selector"] = deployment_rendered["metadata"]["labels"]
+    assert rendered["spec"] == expected_spec
 
 
 def test_render_ingress():
     """An Ingress renders to a k8s Ingress."""
+    ingress = k8s.Ingress(
+        exposed_path="/abc",
+        backend_service=k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT))
+    assert ingress.render() == {
+        "apiVersion": "extensions/v1beta1",
+        "kind": "Ingress",
+        "metadata": {
+            "name": "myservice"
+        },
+        "spec": {
+            "rules": [{
+                "http": {
+                    "paths": [{
+                        "path": "/abc",
+                        "backend": {
+                            "serviceName": "myservice",
+                            "servicePort": 1234
+                        }
+                    }]
+                }
+            }]
+        }
+    }

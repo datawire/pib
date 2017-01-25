@@ -14,6 +14,20 @@ class AddressConfigMap(PClass):
     # type=InternalService blows up pyrsistent :(
     backend_service = field(mandatory=True)
 
+    def render(self):
+        """Convert to a Kubernetes YAML/JSON config (as Python objects)."""
+        return {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {
+                "name": self.backend_service.deployment.name,
+            },
+            "data": {
+                "host": self.backend_service.deployment.name,
+                "port": self.backend_service.deployment.port
+            }
+        }
+
 
 class Deployment(PClass):
     """Kubernetes Deployment represenation."""
@@ -21,6 +35,40 @@ class Deployment(PClass):
     docker_image = field(mandatory=True, type=str)
     port = field(mandatory=True, type=int)
     address_configmaps = pset_field(AddressConfigMap)
+
+    def render(self):
+        return {
+            'spec': {
+                'replicas': 1,
+                'template': {
+                    'spec': {
+                        'containers': [{
+                            'name': self.name,
+                            'imagePullPolicy': 'IfNotPresent',
+                            'ports': [{
+                                'containerPort': {
+                                    'port': self.port
+                                }
+                            }],
+                            'image': self.docker_image
+                        }]
+                    },
+                    'metadata': {
+                        'labels': {
+                            'name': self.name
+                        }
+                    }
+                }
+            },
+            'kind': 'Deployment',
+            'metadata': {
+                'labels': {
+                    'name': self.name
+                },
+                'name': self.name
+            },
+            'apiVersion': 'extensions/v1beta1'
+        }
 
 
 class InternalService(PClass):
@@ -30,11 +78,53 @@ class InternalService(PClass):
     """
     deployment = field(mandatory=True, type=Deployment)
 
+    def render(self):
+        rendered_deployment = self.deployment.render()
+        return {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": rendered_deployment["metadata"],
+            "spec": {
+                # TODO: only for local minikube, elsewhere want ClusterIP:
+                "type": "NodePort",
+                "ports": [{
+                    "port": self.deployment.port,
+                    "targetPort": self.deployment.port,
+                    "protocol": "TCP"
+                }],
+                "selector": rendered_deployment["metadata"]["labels"],
+            }
+        }
+
 
 class Ingress(PClass):
     """Kubernetes Ingress representation."""
     exposed_path = field(mandatory=True, type=str)
     backend_service = field(mandatory=True, type=InternalService)
+
+    def render(self):
+        name = self.backend_service.deployment.name
+        return {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "Ingress",
+            "metadata": {
+                "name": name,
+            },
+            "spec": {
+                "rules": [{
+                    "http": {
+                        "paths": [{
+                            "path": self.exposed_path,
+                            "backend": {
+                                "serviceName": name,
+                                "servicePort":
+                                self.backend_service.deployment.port,
+                            }
+                        }]
+                    }
+                }]
+            }
+        }
 
 
 def envfile_to_k8s(envfile):
@@ -77,7 +167,8 @@ def envfile_to_k8s(envfile):
             name=service.name,
             docker_image=service.image.image_name,
             port=service.port,
-            address_configmaps=shared_addressconfigmaps | private_addressconfigmaps)
+            address_configmaps=shared_addressconfigmaps |
+            private_addressconfigmaps)
         k8s_service = InternalService(deployment=deployment)
         k8s_services[service.name] = k8s_service
         ingress = Ingress(
