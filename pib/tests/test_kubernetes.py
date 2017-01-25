@@ -191,7 +191,7 @@ def test_render_addressconfigmap():
         },
         "data": {
             "host": "myservice",
-            "port": 1234,
+            "port": "1234"
         }
     }
 
@@ -207,9 +207,7 @@ def test_render_deployment():
                         'name': "myservice",
                         'imagePullPolicy': 'IfNotPresent',
                         'ports': [{
-                            'containerPort': {
-                                'port': 1234,
-                            }
+                            'containerPort': 1234,
                         }],
                         'image': "examplecom/myservice:1.2",
                         'env': [],

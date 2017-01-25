@@ -24,7 +24,7 @@ class AddressConfigMap(PClass):
             },
             "data": {
                 "host": self.backend_service.deployment.name,
-                "port": self.backend_service.deployment.port
+                "port": str(self.backend_service.deployment.port)
             }
         }
 
@@ -46,9 +46,7 @@ class Deployment(PClass):
                             'name': self.name,
                             'imagePullPolicy': 'IfNotPresent',
                             'ports': [{
-                                'containerPort': {
-                                    'port': self.port
-                                }
+                                'containerPort': self.port,
                             }],
                             'image': self.docker_image
                         }]
