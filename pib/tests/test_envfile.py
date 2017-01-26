@@ -17,11 +17,83 @@ def test_load_invalid_instance():
         load_envfile({"not": "valid"})
 
 
+def test_service_shared_component_name_uniqueness():
+    """Shared requires and services cannot have the same name."""
+    bad_instance = """\
+Envfile-version: 1
+
+local:
+  templates:
+    "postgresql-v96":
+      type: docker
+      image: postgres:9.6
+      config:
+        port: 5432
+
+application:
+  requires:
+    shared:
+      template: postgresql-v96
+  services:
+    shared:
+      image:
+        repository: datawire/hello
+        tag: "1.0"
+      port: 5100
+      expose:
+        path: /hello
+      requires: {}
+"""
+    with pytest.raises(ValidationError) as result:
+        load_envfile(safe_load(bad_instance))
+    assert result.value.errors == [
+        "/application/requires/shared: the name 'shared' conflicts "
+        "with service /application/services/shared"
+    ]
+
+
+def test_service_private_component_name_uniqueness():
+    """Private requires cannot have the same name as a shared requires."""
+    bad_instance = """\
+Envfile-version: 1
+
+local:
+  templates:
+    "postgresql-v96":
+      type: docker
+      image: postgres:9.6
+      config:
+        port: 5432
+
+application:
+  requires:
+    shared:
+      template: postgresql-v96
+  services:
+    myservice:
+      image:
+        repository: datawire/hello
+        tag: "1.0"
+      port: 5100
+      expose:
+        path: /hello
+      requires:
+        shared:
+          template: postgresql-v96
+"""
+    with pytest.raises(ValidationError) as result:
+        load_envfile(safe_load(bad_instance))
+    assert result.value.errors == [
+        "/application/services/myservice/requires/shared: the name 'shared'"
+        " conflicts with /application/requires/shared"
+    ]
+
+
 INSTANCE = """\
 Envfile-version: 1
 
 local:
-  components:
+  templates:
     "redis-v3":
       type: docker
       image: redis/redis:3
@@ -80,7 +152,7 @@ def test_load_valid_instance():
                     })
             }),
         remote={"type": "kubernetes"},
-        local=LocalDeployment(components={
+        local=LocalDeployment(templates={
             "redis-v3": DockerComponent(
                 name="redis-v3", image="redis/redis:3", port=6379),
             "postgresql-v96": DockerComponent(

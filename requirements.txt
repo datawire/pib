@@ -1,7 +1,6 @@
 boto3
 click
-jsonschema==2.3.0
-python_jsonschema_objects
+jsonschema
 pyrsistent
 pyyaml
 requests

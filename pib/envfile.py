@@ -3,7 +3,7 @@
 from pyrsistent import (PClass, field, pmap_field, freeze, ny as match_any,
                         discard)
 
-from .schema import validate, ENVFILE_SCHEMA
+from .schema import validate, ENVFILE_SCHEMA, ValidationError
 
 
 class DockerComponent(PClass):
@@ -19,7 +19,7 @@ class DockerComponent(PClass):
 
 class LocalDeployment(PClass):
     """Runs services and components on Minikube."""
-    components = pmap_field(str, DockerComponent)
+    templates = pmap_field(str, DockerComponent)
 
 
 class RequiredComponent(PClass):
@@ -32,6 +32,11 @@ class DockerImage(PClass):
     """A Docker image."""
     repository = field(mandatory=True, type=str)
     tag = field(mandatory=True, type=str)
+
+    @property
+    def image_name(self):
+        """Return <repository>:<tag>."""
+        return "{}:{}".format(self.repository, self.tag)
 
 
 class Expose(PClass):
@@ -57,14 +62,42 @@ class Application(PClass):
 
 class System(PClass):
     """A System loaded from an Envfile.yaml."""
-    local = field(mandatory=True, type=LocalDeployment)
+    local = field(
+        mandatory=True, type=LocalDeployment, initial=LocalDeployment())
     remote = pmap_field(str, str)  # TODO: define structure
     application = field(mandatory=True, type=Application)
 
 
+def semantic_validate(instance):
+    """Additional validation for a decoded Envfile.yaml.
+
+    - Validate unique of names: shared requirements and services can't have the
+      same name.
+    """
+    for name in instance["application"]["requires"]:
+        if name in instance["application"]["services"]:
+            raise ValidationError(errors=[
+                "/application/requires/{}: the name {} conflicts with service"
+                " /application/services/{}".format(name, repr(name), name)])
+    for service_name, service in instance["application"]["services"].items():
+        for name in service["requires"]:
+            if name in instance["application"]["requires"]:
+                raise ValidationError(
+                    errors=[
+                        "/application/services/{}/requires/{}: the name {}"
+                        " conflicts with /application/requires/{}".format(
+                            service_name, name, repr(name), name)])
+
+
 def load_envfile(instance):
-    """Create System object from loaded Envfile.yaml."""
+    """Create System object from decoded Envfile.yaml.
+
+    :return System: parsed envfile.
+    :raises ValidationError: if the Envfile.yaml is invalid in some way.
+    """
     validate(ENVFILE_SCHEMA, instance)
+    semantic_validate(instance)
+
     # At the moment the object model is mostly 1-to-1 with the configuration
     # format. In the future that might change; the idea is for the object model
     # to be an abstraction rather than exactly the same as config format, so
@@ -76,7 +109,7 @@ def load_envfile(instance):
 
     # 0. Drop unneeded fields:
     instance = instance.remove("Envfile-version")
-    instance = instance.transform(["local", "components", match_any, "type"],
+    instance = instance.transform(["local", "templates", match_any, "type"],
                                   discard)
 
     # 1. Some objects want to know their own name:
@@ -86,7 +119,7 @@ def load_envfile(instance):
             mapping = mapping.set(key, value.set("name", key))
         return mapping
 
-    instance = instance.transform(["local", "components"], add_name)
+    instance = instance.transform(["local", "templates"], add_name)
     instance = instance.transform(["application", "requires"], add_name)
     instance = instance.transform(["application", "services"], add_name)
     instance = instance.transform(
@@ -97,6 +130,6 @@ def load_envfile(instance):
         port = docker_component["config"]["port"]
         return docker_component.remove("config").set("port", port)
 
-    instance = instance.transform(["local", "components", match_any],
+    instance = instance.transform(["local", "templates", match_any],
                                   move_port)
     return System.create(instance)

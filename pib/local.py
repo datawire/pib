@@ -6,113 +6,14 @@ from pathlib import Path
 from subprocess import check_call, check_output, CalledProcessError
 from tempfile import NamedTemporaryFile
 from time import sleep, time
+from .kubernetes import envfile_to_k8s, RenderingOptions
 
-from yaml import safe_load, safe_dump
+from yaml import safe_dump
+
 
 PIB_DIR = Path(expanduser("~")) / ".pib"
 MINIKUBE = PIB_DIR / "minikube"
 KUBECTL = PIB_DIR / "kubectl"
-
-INGRESS = """\
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: {name}-ingress
-spec:
-  rules:
-  - http:
-      paths:
-      - path: {path}
-        backend:
-          serviceName: {name}
-          servicePort: {port}
-"""
-
-SERVICE = """\
-apiVersion: v1
-kind: Service
-metadata:
-  name: {name}
-  labels:
-    name: {name}
-spec:
-  type: {service_type}
-  ports:
-  - port: {port}
-    targetPort: {port}
-    protocol: TCP
-  selector:
-    name: {name}
-"""
-
-HTTP_DEPLOYMENT = """\
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: "{name}"
-  labels:
-    name: "{name}"
-spec:
-  replicas: 2
-  template:
-    metadata:
-      labels:
-        name: "{name}"
-    spec:
-      containers:
-      - name: {name}
-        image: "{image}:{tag}"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: {port}
-"""
-
-COMPONENT_DEPLOYMENT = """\
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: "{name}"
-  labels:
-    name: "{name}"
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        name: "{name}"
-    spec:
-      containers:
-      - name: "{name}"
-        image: "{image}"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: {port}
-"""
-
-COMPONENT_CONFIGMAP = """\
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: "{name}-config"
-data:
-  host: "{name}"
-  port: "{port}"
-"""
-
-
-def yaml_render(template, params, transform=lambda x: None):
-    """Render a YAML template.
-
-    :param template str: YAML-encoded template.
-    :param params dict: Values to substitute on template.
-    :param transform: Mutate the decoded YAML object.
-    :return: The resulting YAML-encoded config.
-    """
-    # 1. Substitute values:
-    loaded_config = safe_load(template.format(**params))
-    # 2. Transform:
-    transform(loaded_config)
-    return safe_dump(loaded_config)
 
 
 def run_result(command, **kwargs):
@@ -129,6 +30,7 @@ class RunLocal(object):
     def _check_call(self, *args, **kwargs):
         """Run a subprocess, make sure it exited with 0."""
         self.logfile.write("Running: {}\n".format(args))
+        self.logfile.flush()
         check_call(*args, stdout=self.logfile, stderr=self.logfile, **kwargs)
 
     def ensure_requirements(self):
@@ -226,67 +128,10 @@ class RunLocal(object):
 
     def deploy(self, envfile, tag_overrides):
         """Deploy current configuration to the minikube server."""
-        for service in envfile.application.services.values():
-            self._deploy_service(service, envfile.application.requires,
-                                 tag_overrides)
-        self._deploy_components(envfile)
-
-    def _deploy_service(self, service, common_requires, tag_overrides):
-        """
-        :param service envfile.Service: service to deploy.
-        """
-        name = service.name
-        params = dict(name=name)
-        params["port"] = service.port
-        params["image"] = service.image.repository
-        params["service_type"] = "NodePort"
-        params["tag"] = tag_overrides.get(name, "latest")
-        self._kubectl_apply(yaml_render(SERVICE, params))
-        self._kubectl_apply(yaml_render(COMPONENT_CONFIGMAP, params))
-
-        def add_env_variables(deployment_config):
-            env = []
-            for component in (
-                    service.requires.values() + common_requires.values()):
-                for value in ["host", "port"]:
-                    env.append({
-                        "name": "{}_COMPONENT_{}".format(
-                            component.name.upper().replace("-", "_"),
-                            value.upper()),
-                        "valueFrom": {
-                            "configMapKeyRef": {
-                                "name": "{}-config".format(component.name),
-                                "key": value
-                            }
-                        }
-                    })
-            deployment_config["spec"]["template"]["spec"]["containers"][0][
-                "env"] = env
-
-        self._kubectl_apply(
-            yaml_render(
-                HTTP_DEPLOYMENT, params, transform=add_env_variables))
-        if service.expose is not None:
-            params["path"] = service.expose.path
-            self._kubectl_apply(yaml_render(INGRESS, params))
-        else:
-            # Remove any existing ingress:
-            params["path"] = "/"
-            self._kubectl_delete(yaml_render(INGRESS, params))
-
-    def _deploy_components(self, envfile):
-        required = list(envfile.application.requires.values()) + sum(
-            [list(service.requires.values()) for service in envfile.application.services.values()], [])
-        # TODO: private components can have name conflicts!
-        for requirement in required:
-            component = envfile.local.components[requirement.template]
-            params = {}
-            params["name"] = requirement.name
-            params["port"] = component.port
-            params["image"] = component.image
-            params["service_type"] = "ClusterIP"
-            for k8sobj in [SERVICE, COMPONENT_DEPLOYMENT, COMPONENT_CONFIGMAP]:
-                self._kubectl_apply(yaml_render(k8sobj, params))
+        # TODO: missing ability to remove previous iteration of k8s objects!
+        options = RenderingOptions(tag_overrides=tag_overrides)
+        for k8s_config in envfile_to_k8s(envfile):
+            self._kubectl_apply(safe_dump(k8s_config.render(options)))
 
     def get_application_urls(self, envfile):
         """
