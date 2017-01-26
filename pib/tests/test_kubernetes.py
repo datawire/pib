@@ -47,7 +47,7 @@ def test_envfile_to_k8s_private_component():
         DockerComponent(
             name="mycomponent", image="postgres:9.3", port=3535))
     expected_component_deployment = k8s.Deployment(
-        name="myservice-mycomponent-component",
+        name="myservice---mycomponent",
         docker_image="postgres:9.3",
         port=3535)
     expected_component_service = k8s.InternalService(
@@ -83,7 +83,7 @@ def test_envfile_to_k8s_shared_component():
         DockerComponent(
             name="database", image="postgres:9.3", port=3535))
     expected_component_deployment = k8s.Deployment(
-        name="mycomponent-component", docker_image="postgres:9.3", port=3535)
+        name="mycomponent", docker_image="postgres:9.3", port=3535)
     expected_component_service = k8s.InternalService(
         deployment=expected_component_deployment)
     expected_addrconfigmap = k8s.AddressConfigMap(
@@ -177,7 +177,7 @@ def test_envfile_k8s_private_component_is_private():
         for o in k8s_objects
         if isinstance(o, k8s.Deployment) and "mycomponent" in o.name
     } == {
-        "myservice-mycomponent-component", "myservice2-mycomponent-component"
+        "myservice---mycomponent", "myservice2---mycomponent"
     }
 
 
@@ -240,7 +240,7 @@ def test_render_deployment_with_configmaps():
         component_name="thedb",
         backend_service=k8s.InternalService(
             deployment=SIMPLE_K8S_DEPLOYMENT.set(
-                "name", "myservice-thedb-component").set("port", 5678)))
+                "name", "myservice---thedb").set("port", 5678)))
     deployment_with_configmap = SIMPLE_K8S_DEPLOYMENT.set("address_configmaps",
                                                           {addrconfigmap})
     expected = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
@@ -249,7 +249,7 @@ def test_render_deployment_with_configmaps():
             "name": "THEDB_COMPONENT_HOST",
             "valueFrom": {
                 "configMapKeyRef": {
-                    "name": "myservice-thedb-component",
+                    "name": "myservice---thedb",
                     "key": "host",
                 }
             }
@@ -258,7 +258,7 @@ def test_render_deployment_with_configmaps():
             "name": "THEDB_COMPONENT_PORT",
             "valueFrom": {
                 "configMapKeyRef": {
-                    "name": "myservice-thedb-component",
+                    "name": "myservice---thedb",
                     "key": "port",
                 }
             }
