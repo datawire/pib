@@ -89,6 +89,40 @@ application:
     ]
 
 
+def test_unknown_template_name():
+    """References to unknown templates result in validation error."""
+    bad_instance = """\
+Envfile-version: 1
+
+local:
+  templates: {}
+
+application:
+  requires:
+    shared:
+      template: template1
+  services:
+    myservice:
+      image:
+        repository: datawire/hello
+        tag: "1.0"
+      port: 5100
+      expose:
+        path: /hello
+      requires:
+        private:
+          template: template2
+"""
+    with pytest.raises(ValidationError) as result:
+        load_envfile(safe_load(bad_instance))
+    assert sorted(result.value.errors) == sorted([
+        "/application/requires/shared/template: "
+        "the template 'template1' does not exist in /local/templates",
+        "/application/services/myservice/requires/private/template: "
+        "the template 'template2' does not exist in /local/templates",
+    ])
+
+
 INSTANCE = """\
 Envfile-version: 1
 

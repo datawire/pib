@@ -71,22 +71,42 @@ class System(PClass):
 def semantic_validate(instance):
     """Additional validation for a decoded Envfile.yaml.
 
-    - Validate unique of names: shared requirements and services can't have the
-      same name.
+    * Validate uniqueness of names: shared requirements and services can't have
+      the same name.
+    * Validate that each referenced template in a requirement has a matching
+      entry in /local/templates/
+
     """
-    for name in instance["application"]["requires"]:
+    unknown_templates = {}
+    for name, requires in instance["application"]["requires"].items():
         if name in instance["application"]["services"]:
             raise ValidationError(errors=[
                 "/application/requires/{}: the name {} conflicts with service"
-                " /application/services/{}".format(name, repr(name), name)])
+                " /application/services/{}".format(name,
+                                                   repr(name),
+                                                   name),
+            ])
+        if requires["template"] not in instance["local"]["templates"]:
+            unknown_templates["/application/requires/{}/template".format(
+                name)] = requires["template"]
     for service_name, service in instance["application"]["services"].items():
-        for name in service["requires"]:
+        for name, requires in service["requires"].items():
             if name in instance["application"]["requires"]:
-                raise ValidationError(
-                    errors=[
-                        "/application/services/{}/requires/{}: the name {}"
-                        " conflicts with /application/requires/{}".format(
-                            service_name, name, repr(name), name)])
+                raise ValidationError(errors=[
+                    "/application/services/{}/requires/{}: the name {}"
+                    " conflicts with /application/requires/{}".format(
+                        service_name, name, repr(name), name)
+                ])
+            if requires["template"] not in instance["local"]["templates"]:
+                unknown_templates[
+                    "/application/services/{}/requires/{}/template".
+                    format(service_name, name)] = requires["template"]
+    if unknown_templates:
+        raise ValidationError(errors=[
+            "{}: the template {} does not exist "
+            "in /local/templates".format(path, repr(name))
+            for (path, name) in unknown_templates.items()
+        ])
 
 
 def load_envfile(instance):
@@ -130,6 +150,5 @@ def load_envfile(instance):
         port = docker_component["config"]["port"]
         return docker_component.remove("config").set("port", port)
 
-    instance = instance.transform(["local", "templates", match_any],
-                                  move_port)
+    instance = instance.transform(["local", "templates", match_any], move_port)
     return System.create(instance)
