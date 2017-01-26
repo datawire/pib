@@ -69,7 +69,11 @@ class System(PClass):
 
 
 def load_envfile(instance):
-    """Create System object from loaded Envfile.yaml."""
+    """Create System object from loaded Envfile.yaml.
+
+    :return System: parsed envfile.
+    :raises ValidationError: if the Envfile.yaml is invalid in some way.
+    """
     validate(ENVFILE_SCHEMA, instance)
     # At the moment the object model is mostly 1-to-1 with the configuration
     # format. In the future that might change; the idea is for the object model

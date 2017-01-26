@@ -1,13 +1,22 @@
 $schema: http://json-schema.org/draft-04/schema#
 
 definitions:
+  # k8s Service max == 63, currently we do service name + "---"+private
+  # component name for naming k8s Service used for private components. Because
+  # Reasons this needs to be copy/pasted, but leaving it here for documentation
+  # purposes:
+  name_pattern: "^[a-zA-Z][-a-zA-Z0-9]{0,29}$"
+
   local:
     type: object
     properties:
       templates:
-        additionalProperties:
-          oneOf:
-            - $ref: "#/definitions/docker-component"
+        type: object
+        additionalProperties: false
+        patternProperties:
+          "^[a-zA-Z][-a-zA-Z0-9]{0,29}$":
+            oneOf:
+              - $ref: "#/definitions/docker-component"
     additionalProperties: false
     required: ["templates"]
 
@@ -31,13 +40,15 @@ definitions:
 
   requires:
     type: object
-    additionalProperties:
-      type: object
-      properties:
-        template:
-          type: string
-      additionalProperties: false
-      required: ["template"]
+    additionalProperties: false
+    patternProperties:
+      "^[a-zA-Z][-a-zA-Z0-9]{0,29}$":
+        type: object
+        properties:
+          template:
+            type: string
+        additionalProperties: false
+        required: ["template"]
 
   service:
     type: object
@@ -88,8 +99,10 @@ properties:
         $ref: "#/definitions/requires"
       services:
         type: object
-        additionalProperties:
-          $ref: "#/definitions/service"
+        patternProperties:
+          "^[a-zA-Z][-a-zA-Z0-9]{0,29}$":
+            $ref: "#/definitions/service"
+        additionalProperties: false
     additionalProperties: false
     required: ["requires", "services"]
 additionalProperties: false

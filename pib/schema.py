@@ -8,7 +8,6 @@ from pathlib import Path
 from jsonschema import Draft4Validator
 from yaml import safe_load
 
-
 with (Path(__file__).parent / "schema.yaml").open() as f:
     ENVFILE_SCHEMA = safe_load(f.read())
 
@@ -17,6 +16,7 @@ class ValidationError(Exception):
     """
     Has list of validation errors.
     """
+
     def __init__(self, errors):
         self.errors = errors
         Exception.__init__(self)
@@ -36,8 +36,23 @@ def validate(schema, instance):
     """
     validator = Draft4Validator(schema)
     if not validator.is_valid(instance):
-        errors = ["/{}: {}".format("/".join(map(str, e.path)), e.message)
-                  for e in validator.iter_errors(instance)]
+        errors = []
+        for e in validator.iter_errors(instance):
+            message = e.message
+            # Better error messages, workaround for
+            # https://github.com/Julian/jsonschema/issues/316:
+            if (e.validator == "additionalProperties" and
+                    not e.validator_value and "patternProperties" in e.schema):
+                for key in e.instance.keys():
+                    if repr(key) in e.message:
+                        message = (
+                            "{} does not match any of these "
+                            "regexs: {}.".format(
+                                repr(key),
+                                ", ".join(e.schema["patternProperties"].keys())))
+                        break
+            errors.append(
+                "/{}: {}".format("/".join(map(str, e.path)), message))
         raise ValidationError(errors)
 
 

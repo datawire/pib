@@ -174,7 +174,7 @@ def envfile_to_k8s(envfile):
     def require_to_k8s(requirement, prefix):
         component = envfile.local.templates[requirement.template]
         deployment = Deployment(
-            name=prefix + requirement.name + "-component",
+            name=prefix + requirement.name,
             docker_image=component.image,
             port=component.port)
         k8s_service = InternalService(deployment=deployment)
@@ -192,7 +192,7 @@ def envfile_to_k8s(envfile):
     for service in envfile.application.services.values():
         # Private components should be namespaced based on the service they're
         # part of, so they get prefix with service name:
-        component_prefix = "{}-".format(service.name)
+        component_prefix = "{}---".format(service.name)
         private_addressconfigmaps = set()
         for private_require in service.requires.values():
             new_objs = require_to_k8s(private_require, prefix=component_prefix)
