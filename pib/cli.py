@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from functools import wraps
 from pathlib import Path
 from time import sleep
 from sys import stdout, exit
@@ -25,7 +26,9 @@ def create_run_local(logfile_path):
     if logfile_path == "-":
         logfile = stdout
     else:
-        logfile = open(logfile_path, "a+")
+        # Wipe existing logfile, and use line buffering so data gets written
+        # out immediately.
+        logfile = open(logfile_path, "w", buffering=1)
     return RunLocal(logfile)
 
 
@@ -101,6 +104,39 @@ param_envfile = click.argument(
         readable=True, dir_okay=False, exists=True))
 
 
+def handle_unexpected_errors(f):
+    """Decorator that catches unexpected errors."""
+
+    @wraps(f)
+    def call_f(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            click.echo(
+                "Looks like there's a bug in our code. Sorry about that!\n")
+            click.echo(
+                click.style(
+                    "We'd really appreciate it if you could file an issue at ",
+                    bold=True) + click.style(
+                        "https://github.com/datawire/pib/issues/new",
+                        bold=True,
+                        underline=True) + click.style(
+                            " with the following information:", bold=True))
+            click.echo("""\
+
+1. The command you ran.
+2. The output of `pib --version`.
+3. The traceback and error printed below.
+4. The contents of your pib.log file (it should be in the current directory).
+5. Your Envfile.yaml if you're OK sharing it.
+
+Here's the traceback and error from the code:
+""")
+            raise
+
+    return call_f
+
+
 @click.group()
 @click.version_option(version=__version__)
 def cli():
@@ -111,6 +147,7 @@ def cli():
 @opt_logfile
 @opt_directory
 @param_envfile
+@handle_unexpected_errors
 def cli_deploy(logfile, directory, envfile_path):
     envfile = load_envfile(Path(envfile_path))
     directory = Path(directory)
@@ -125,6 +162,7 @@ def cli_deploy(logfile, directory, envfile_path):
 @opt_logfile
 @opt_directory
 @param_envfile
+@handle_unexpected_errors
 def cli_watch(logfile, directory, envfile_path):
     envfile = load_envfile(Path(envfile_path))
     directory = Path(directory)
@@ -140,6 +178,7 @@ def cli_watch(logfile, directory, envfile_path):
                            ' deployed to your local Kubernetes server '
                            '(minikube)?\nThis will also delete services not '
                            'started by pib.')
+@handle_unexpected_errors
 def cli_wipe(logfile):
     run_local = start(logfile)
     run_local.wipe()
