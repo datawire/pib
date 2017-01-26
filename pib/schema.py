@@ -8,8 +8,11 @@ from pathlib import Path
 from jsonschema import Draft4Validator
 from yaml import safe_load
 
-with (Path(__file__).parent / "schema.yaml").open() as f:
+with (Path(__file__).parent / "envfile-schema.yaml").open() as f:
     ENVFILE_SCHEMA = safe_load(f.read())
+
+with (Path(__file__).parent / "kubefile-schema.yaml").open() as f:
+    KUBEFILE_SCHEMA = safe_load(f.read())
 
 
 class ValidationError(Exception):
