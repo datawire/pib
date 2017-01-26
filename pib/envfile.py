@@ -79,6 +79,14 @@ def semantic_validate(instance):
             raise ValidationError(errors=[
                 "/application/requires/{}: the name {} conflicts with service"
                 " /application/services/{}".format(name, repr(name), name)])
+    for service_name, service in instance["application"]["services"].items():
+        for name in service["requires"]:
+            if name in instance["application"]["requires"]:
+                raise ValidationError(
+                    errors=[
+                        "/application/services/{}/requires/{}: the name {}"
+                        " conflicts with /application/requires/{}".format(
+                            service_name, name, repr(name), name)])
 
 
 def load_envfile(instance):

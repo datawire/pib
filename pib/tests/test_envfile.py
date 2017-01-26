@@ -52,6 +52,43 @@ application:
     ]
 
 
+def test_service_private_component_name_uniqueness():
+    """Private requires cannot have the same name as a shared requires."""
+    bad_instance = """\
+Envfile-version: 1
+
+local:
+  templates:
+    "postgresql-v96":
+      type: docker
+      image: postgres:9.6
+      config:
+        port: 5432
+
+application:
+  requires:
+    shared:
+      template: postgresql-v96
+  services:
+    myservice:
+      image:
+        repository: datawire/hello
+        tag: "1.0"
+      port: 5100
+      expose:
+        path: /hello
+      requires:
+        shared:
+          template: postgresql-v96
+"""
+    with pytest.raises(ValidationError) as result:
+        load_envfile(safe_load(bad_instance))
+    assert result.value.errors == [
+        "/application/services/myservice/requires/shared: the name 'shared'"
+        " conflicts with /application/requires/shared"
+    ]
+
+
 INSTANCE = """\
 Envfile-version: 1
 
