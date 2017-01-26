@@ -3,7 +3,7 @@
 from pyrsistent import (PClass, field, pmap_field, freeze, ny as match_any,
                         discard)
 
-from .schema import validate, ENVFILE_SCHEMA
+from .schema import validate, ENVFILE_SCHEMA, ValidationError
 
 
 class DockerComponent(PClass):
@@ -68,13 +68,36 @@ class System(PClass):
     application = field(mandatory=True, type=Application)
 
 
+def semantic_validate(instance):
+    """Additional validation for a decoded Envfile.yaml.
+
+    - Validate unique of names: shared requirements and services can't have the
+      same name.
+    """
+    for name in instance["application"]["requires"]:
+        if name in instance["application"]["services"]:
+            raise ValidationError(errors=[
+                "/application/requires/{}: the name {} conflicts with service"
+                " /application/services/{}".format(name, repr(name), name)])
+    for service_name, service in instance["application"]["services"].items():
+        for name in service["requires"]:
+            if name in instance["application"]["requires"]:
+                raise ValidationError(
+                    errors=[
+                        "/application/services/{}/requires/{}: the name {}"
+                        " conflicts with /application/requires/{}".format(
+                            service_name, name, repr(name), name)])
+
+
 def load_envfile(instance):
-    """Create System object from loaded Envfile.yaml.
+    """Create System object from decoded Envfile.yaml.
 
     :return System: parsed envfile.
     :raises ValidationError: if the Envfile.yaml is invalid in some way.
     """
     validate(ENVFILE_SCHEMA, instance)
+    semantic_validate(instance)
+
     # At the moment the object model is mostly 1-to-1 with the configuration
     # format. In the future that might change; the idea is for the object model
     # to be an abstraction rather than exactly the same as config format, so
