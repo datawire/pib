@@ -125,9 +125,10 @@ def handle_unexpected_errors(f):
             click.echo("""\
 
 1. The command you ran.
-2. The traceback and error printed below.
-3. The contents of your pib.log file (it should be in the current directory).
-4. Your Envfile.yaml if you're OK sharing it.
+2. The output of `pib --version`.
+3. The traceback and error printed below.
+4. The contents of your pib.log file (it should be in the current directory).
+5. Your Envfile.yaml if you're OK sharing it.
 
 Here's the traceback and error from the code:
 """)
