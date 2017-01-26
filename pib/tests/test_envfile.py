@@ -17,6 +17,41 @@ def test_load_invalid_instance():
         load_envfile({"not": "valid"})
 
 
+def test_service_shared_component_name_uniqueness():
+    """Shared requires and services cannot have the same name."""
+    bad_instance = """\
+Envfile-version: 1
+
+local:
+  templates:
+    "postgresql-v96":
+      type: docker
+      image: postgres:9.6
+      config:
+        port: 5432
+
+application:
+  requires:
+    shared:
+      template: postgresql-v96
+  services:
+    shared:
+      image:
+        repository: datawire/hello
+        tag: "1.0"
+      port: 5100
+      expose:
+        path: /hello
+      requires: {}
+"""
+    with pytest.raises(ValidationError) as result:
+        load_envfile(safe_load(bad_instance))
+    assert result.value.errors == [
+        "/application/requires/shared: the name 'shared' conflicts "
+        "with service /application/services/shared"
+    ]
+
+
 INSTANCE = """\
 Envfile-version: 1
 
