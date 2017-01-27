@@ -259,6 +259,7 @@ def test_render_deployment_with_configmaps():
     """A Deployment with InternalRequiresConfigMaps turns them into env variables."""
     addrconfigmap = k8s.InternalRequiresConfigMap(
         resource_name="thedb",
+        data={"another": "value"},
         backend_service=k8s.InternalService(
             deployment=SIMPLE_K8S_DEPLOYMENT.set(
                 "name", "myservice---thedb").set("port", 5678)))
@@ -266,6 +267,15 @@ def test_render_deployment_with_configmaps():
                                                           {addrconfigmap})
     expected = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
     env = [
+        {
+            "name": "THEDB_RESOURCE_ANOTHER",
+            "valueFrom": {
+                "configMapKeyRef": {
+                    "name": "myservice---thedb",
+                    "key": "another",
+                }
+            }
+        },
         {
             "name": "THEDB_RESOURCE_HOST",
             "valueFrom": {

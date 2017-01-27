@@ -38,6 +38,10 @@ class ExternalRequiresConfigMap(PClass):
     resource_name = field(mandatory=True, type=str)  # original resource name
     data = pmap_field(str, str)  # the information stored in the ConfigMap
 
+    def get_full_data(self):
+        """:return PMap: the full set of values in the configmap."""
+        return self.data
+
     def render(self, options):
         return _render_configmap(self.name, thaw(self.data))
 
@@ -55,13 +59,17 @@ class InternalRequiresConfigMap(PClass):
     resource_name = field(mandatory=True, type=str)  # original resource name
     data = pmap_field(str, str)  # the information stored in the ConfigMap
 
+    def get_full_data(self):
+        """:return PMap: the full set of values in the configmap."""
+        return self.data.update({
+            "host": self.backend_service.deployment.name,
+            "port": str(self.backend_service.deployment.port),
+        })
+
     def render(self, options):
         return _render_configmap(
             self.backend_service.deployment.name,
-            thaw(self.data.update({
-                "host": self.backend_service.deployment.name,
-                "port": str(self.backend_service.deployment.port),
-            }))
+            thaw(self.get_full_data())
         )
 
 
@@ -112,7 +120,7 @@ class Deployment(PClass):
         }
         env = []
         for configmap in self.address_configmaps:
-            for value in ["host", "port"]:
+            for key in sorted(configmap.get_full_data()):
                 # Notice that the environment variables are based on the
                 # original name of the resource, not the namespaced Kubernetes
                 # variant; from the service's point of view the original name
@@ -121,13 +129,13 @@ class Deployment(PClass):
                 env.append({
                     "name":
                     "{}_RESOURCE_{}".format(name.upper().replace("-", "_"),
-                                            value.upper()),
+                                            key.upper()),
                     "valueFrom": {
                         "configMapKeyRef": {
                             # ConfigMap k8s object has same name as the
                             # Deployment it points at:
                             "name": configmap.backend_service.deployment.name,
-                            "key": value
+                            "key": key
                         }
                     }
                 })
