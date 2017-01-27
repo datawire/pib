@@ -9,7 +9,7 @@ Many modern applications are a system, composed of a number of business logic *s
 For example, you might be building a website that has multiple services: a main one for HTTP and a secondary one for pushing WebSocket events to the browser.
 Or you might be building a data ingestion pipeline: one service accepts events and pushes them to a database or queue, and other services read that data from the database/queue.
 
-Each service might rely on a number of *resources*, things like PostgreSQL, Redis, ElasticSearch or Kafka.
+Each service relies on a number of *resources*, things like PostgreSQL, Redis, ElasticSearch or Kafka.
 Some resources might only be used by a single service, and some might be shared.
 
 ### Developing and deploying systems is harder
