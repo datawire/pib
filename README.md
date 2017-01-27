@@ -4,7 +4,8 @@
 
 ### Modern applications are systems
 
-Many modern applications are a system, composed of a number of business logic *services*
+Many modern applications are a system, composed of a number of business logic *services*.
+
 For example, you might be building a website that has multiple services: a main one for HTTP and a secondary one for pushing WebSocket events to the browser.
 Or you might be building a data ingestion pipeline: one service accepts events and pushes them to a database or queue, and other services read that data from the database/queue.
 
