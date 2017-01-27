@@ -213,7 +213,7 @@ def envfile_to_k8s(envfile):
         deployment = Deployment(
             name=prefix + requirement.name,
             docker_image=resource.image,
-            port=resource.port)
+            port=resource.config["port"])
         k8s_service = InternalService(deployment=deployment)
         addrconfigmap = InternalRequiresConfigMap(
             backend_service=k8s_service, resource_name=requirement.name)

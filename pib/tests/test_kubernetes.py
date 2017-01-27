@@ -45,7 +45,7 @@ def test_envfile_to_k8s_private_resource():
     system = system.transform(
         ["local", "templates", "database"],
         DockerResource(
-            name="myresource", image="postgres:9.3", port=3535))
+            name="myresource", image="postgres:9.3", config=dict(port=3535)))
     expected_resource_deployment = k8s.Deployment(
         name="myservice---myresource",
         docker_image="postgres:9.3",
@@ -81,7 +81,7 @@ def test_envfile_to_k8s_shared_resource():
     system = system.transform(
         ["local", "templates", "database"],
         DockerResource(
-            name="database", image="postgres:9.3", port=3535))
+            name="database", image="postgres:9.3", config=dict(port=3535)))
     expected_resource_deployment = k8s.Deployment(
         name="myresource", docker_image="postgres:9.3", port=3535)
     expected_resource_service = k8s.InternalService(
@@ -130,7 +130,7 @@ def test_envfile_k8s_shared_resource_once():
             }, ),
         local=LocalDeployment(templates={
             "database": DockerResource(
-                name="database", image="postgres:9.3", port=3535)
+                name="database", image="postgres:9.3", config=dict(port=3535))
         }))
     k8s_objects = envfile_to_k8s(system)
     assert len([
@@ -169,7 +169,7 @@ def test_envfile_k8s_private_resource_is_private():
         }),
         local=LocalDeployment(templates={
             "database": DockerResource(
-                name="database", image="postgres:9.3", port=3535)
+                name="database", image="postgres:9.3", config=dict(port=3535))
         }))
     k8s_objects = envfile_to_k8s(system)
     assert {
