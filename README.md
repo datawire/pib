@@ -1,13 +1,38 @@
 # Pib
 
-Pib lets you develop your application and the services that compose it as a system.
-You get a coherent, system-level view of your application, not just a pile of AMIs or Docker images.
+## Motivation
+
+### Modern applications are systems
+
+Many modern applications are a system, composed of a number of business logic *services*
+For example, you might be building a website that has multiple services: a main one for HTTP and a secondary one for pushing WebSocket events to the browser.
+Or you might be building a data ingestion pipeline: one service accepts events and pushes them to a database or queue, and other services read that data from the database/queue.
+
+Each service might rely on a number of *resources*, things like PostgreSQL, Redis, ElasticSearch or Kafka.
+Some resources might only be used by a single service, and some might be shared.
+
+### Developing and deploying systems is harder
+
+Developing these modern applications introduces new problems:
+
+* How do you spin up a service and its dependencies, or the whole system, for local development?
+  Tools like Docker Compose help, but they usually can't be used to describe your production system.
+* How do you spin up a service and its dependencies in a production environment?
+  Tools like Terraform can deploy your infrastructure, but won't help with local development.
+* How do you deal with a combination of container infrastructure and cloud infrastructure?
+  Deploying to both Kubernetes and AWS in sync can be difficult.
+
+### Pib: an end-to-end solution
+
+Pib provides a way for you to describe your application and the services that compose it as a system.
+Once you've written that description you have a single coherent, system-level view of your application.
+And you can use this single description both for local development and, with additional configuration, for production deployments.
 
 That means:
 
 * You can develop locally with a fast feedback loop.
 * Your production environment can use infrastructure like AWS RDS.
-* You can trust that local development and production are still as similar as possible, because they both run off the same system-level configuration.
+* You can trust that local development and production are still as similar as possible, because they both run off the same system-level description..
 
 ## Warning: work-in-progress, changing rapidly
 
