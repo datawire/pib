@@ -216,7 +216,8 @@ def envfile_to_k8s(envfile):
             port=resource.config["port"])
         k8s_service = InternalService(deployment=deployment)
         addrconfigmap = InternalRequiresConfigMap(
-            backend_service=k8s_service, resource_name=requirement.name)
+            backend_service=k8s_service, resource_name=requirement.name,
+            data=resource.config.remove("port"))
         return deployment, k8s_service, addrconfigmap
 
     # Shared resources are shared, so no prefix:

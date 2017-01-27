@@ -45,7 +45,8 @@ def test_envfile_to_k8s_private_resource():
     system = system.transform(
         ["local", "templates", "database"],
         DockerResource(
-            name="myresource", image="postgres:9.3", config=dict(port=3535)))
+            name="myresource", image="postgres:9.3", config=dict(port=3535,
+                                                                 another="value")))
     expected_resource_deployment = k8s.Deployment(
         name="myservice---myresource",
         docker_image="postgres:9.3",
@@ -54,7 +55,8 @@ def test_envfile_to_k8s_private_resource():
         deployment=expected_resource_deployment)
     expected_addrconfigmap = k8s.InternalRequiresConfigMap(
         backend_service=expected_resource_service,
-        resource_name="myresource")
+        resource_name="myresource",
+        data={"another": "value"})
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
         ["address_configmaps"], {expected_addrconfigmap})
     expected_service = k8s.InternalService(deployment=expected_deployment)
