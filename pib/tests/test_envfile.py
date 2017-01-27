@@ -29,6 +29,7 @@ local:
       image: postgres:9.6
       config:
         port: 5432
+        random: value
 
 application:
   requires:
@@ -139,6 +140,7 @@ local:
       image: postgres:9.6
       config:
         port: 5432
+        another: value
 
 remote:
   type: kubernetes
@@ -188,7 +190,9 @@ def test_load_valid_instance():
         remote={"type": "kubernetes"},
         local=LocalDeployment(templates={
             "redis-v3": DockerResource(
-                name="redis-v3", image="redis/redis:3", port=6379),
+                name="redis-v3", image="redis/redis:3", config={"port": 6379}),
             "postgresql-v96": DockerResource(
-                name="postgresql-v96", image="postgres:9.6", port=5432)
+                name="postgresql-v96", image="postgres:9.6", config={
+                    "port": 5432, "another": "value"},
+            )
         }))

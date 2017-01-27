@@ -1,6 +1,6 @@
 """Kubernetes integration for Pib."""
 
-from pyrsistent import PClass, field, pset_field, pset, pmap_field
+from pyrsistent import PClass, field, pset_field, pset, pmap_field, thaw
 
 
 class RenderingOptions(PClass):
@@ -10,31 +10,67 @@ class RenderingOptions(PClass):
     # TODO: eventually ClusterIP vs NodePort can go here
 
 
-class AddressConfigMap(PClass):
-    """Kubernetes ConfigMap representation pointing at an InternalService.
+def _render_configmap(name, data):
+    """
+    Return JSON for a ConfigMap.
+
+    :param name str: The name of the configmap.
+    :param data dict: The data included in the ConfigMap.
+    """
+    return {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": name,
+        },
+        "data": data
+    }
+
+
+class ExternalRequiresConfigMap(PClass):
+    """
+    Kubernetes ConfigMap pointing an external resource (e.g. AWS RDS) for a
+    specific required resource.
+    """
+    # TODO the name should be either the requires name for shared requires, or
+    # "<service name>---<requires name>" for private resources:
+    name = field(mandatory=True, type=str)  # The name of this ConfigMap
+    resource_name = field(mandatory=True, type=str)  # original resource name
+    data = pmap_field(str, str)  # the information stored in the ConfigMap
+
+    def get_full_data(self):
+        """:return PMap: the full set of values in the configmap."""
+        return self.data
+
+    def render(self, options):
+        return _render_configmap(self.name, thaw(self.data))
+
+
+class InternalRequiresConfigMap(PClass):
+    """
+    Kubernetes ConfigMap representation pointing at an InternalService used for
+    a resource.
 
     This will be used to give a envfile service the addresses of envfile
-    deployments.
+    resources when used in local (minikube) mode.
     """
-    # TODO: When we support external services (e.g. AWS RDS) this may point at
-    # those as well.
     # type=InternalService blows up pyrsistent :(
     backend_service = field(mandatory=True)
     resource_name = field(mandatory=True, type=str)  # original resource name
+    data = pmap_field(str, str)  # the information stored in the ConfigMap
+
+    def get_full_data(self):
+        """:return PMap: the full set of values in the configmap."""
+        return self.data.update({
+            "host": self.backend_service.deployment.name,
+            "port": str(self.backend_service.deployment.port),
+        })
 
     def render(self, options):
-        """Convert to a Kubernetes YAML/JSON config (as Python objects)."""
-        return {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": {
-                "name": self.backend_service.deployment.name,
-            },
-            "data": {
-                "host": self.backend_service.deployment.name,
-                "port": str(self.backend_service.deployment.port)
-            }
-        }
+        return _render_configmap(
+            self.backend_service.deployment.name,
+            thaw(self.get_full_data())
+        )
 
 
 class Deployment(PClass):
@@ -42,7 +78,8 @@ class Deployment(PClass):
     name = field(mandatory=True, type=str)
     docker_image = field(mandatory=True, type=str)
     port = field(mandatory=True, type=int)
-    address_configmaps = pset_field(AddressConfigMap)
+    address_configmaps = pset_field((InternalRequiresConfigMap,
+                                     ExternalRequiresConfigMap))
 
     def render(self, options):
         docker_image = self.docker_image
@@ -83,7 +120,7 @@ class Deployment(PClass):
         }
         env = []
         for configmap in self.address_configmaps:
-            for value in ["host", "port"]:
+            for key in sorted(configmap.get_full_data()):
                 # Notice that the environment variables are based on the
                 # original name of the resource, not the namespaced Kubernetes
                 # variant; from the service's point of view the original name
@@ -92,13 +129,13 @@ class Deployment(PClass):
                 env.append({
                     "name":
                     "{}_RESOURCE_{}".format(name.upper().replace("-", "_"),
-                                            value.upper()),
+                                            key.upper()),
                     "valueFrom": {
                         "configMapKeyRef": {
                             # ConfigMap k8s object has same name as the
                             # Deployment it points at:
                             "name": configmap.backend_service.deployment.name,
-                            "key": value
+                            "key": key
                         }
                     }
                 })
@@ -176,10 +213,11 @@ def envfile_to_k8s(envfile):
         deployment = Deployment(
             name=prefix + requirement.name,
             docker_image=resource.image,
-            port=resource.port)
+            port=resource.config["port"])
         k8s_service = InternalService(deployment=deployment)
-        addrconfigmap = AddressConfigMap(
-            backend_service=k8s_service, resource_name=requirement.name)
+        addrconfigmap = InternalRequiresConfigMap(
+            backend_service=k8s_service, resource_name=requirement.name,
+            data=resource.config.remove("port"))
         return deployment, k8s_service, addrconfigmap
 
     # Shared resources are shared, so no prefix:

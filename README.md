@@ -76,14 +76,16 @@ application:
           # infrastructure.
           template: postgresql-v96
 
-local:
+local:  # <-- Resource templates for local testing
   templates:
     "postgresql-v96":
       type: docker
       image: postgres:9.6
       config:
         port: 5432
-
+        username: postgres
+        password: postgres
+  
 # 'remote' isn't setup now, but we'll add it in later when we're ready to deploy
 # to production.
 ```
@@ -104,8 +106,9 @@ This will:
 2. Run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
 3. As you change your code the containers will be updated with the latest version of the code.
 
-Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_RESOURCE_HOST` and `HELLO_DB_RESOURCE_PORT`.
-In general the environment variables are of the form `<template>_RESOURCE_HOST/PORT` where `template` is the template chosen in the requirement.
+Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_RESOURCE_HOST`.
+Additional values from the config also become variables, e.g. `port` becomes `HELLO_DB_RESOURCE_PORT`.
+In general the environment variables are of the form `<template>_RESOURCE_<config key>` where `template` is the template chosen in the requirement.
 
 ### Multiple services
 

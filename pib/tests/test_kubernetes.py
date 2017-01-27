@@ -36,7 +36,7 @@ def test_envfile_to_k8s_service():
 def test_envfile_to_k8s_private_resource():
     """
     Each private Envfile resource gets a k8s Service, Deployment and
-    AddressConfigMap.
+    InternalRequiresConfigMap.
     """
     system = SIMPLE_SYSTEM.transform(
         ["application", "services", "myservice", "requires", "myresource"],
@@ -45,16 +45,18 @@ def test_envfile_to_k8s_private_resource():
     system = system.transform(
         ["local", "templates", "database"],
         DockerResource(
-            name="myresource", image="postgres:9.3", port=3535))
+            name="myresource", image="postgres:9.3", config=dict(port=3535,
+                                                                 another="value")))
     expected_resource_deployment = k8s.Deployment(
         name="myservice---myresource",
         docker_image="postgres:9.3",
         port=3535)
     expected_resource_service = k8s.InternalService(
         deployment=expected_resource_deployment)
-    expected_addrconfigmap = k8s.AddressConfigMap(
+    expected_addrconfigmap = k8s.InternalRequiresConfigMap(
         backend_service=expected_resource_service,
-        resource_name="myresource")
+        resource_name="myresource",
+        data={"another": "value"})
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
         ["address_configmaps"], {expected_addrconfigmap})
     expected_service = k8s.InternalService(deployment=expected_deployment)
@@ -72,7 +74,7 @@ def test_envfile_to_k8s_private_resource():
 def test_envfile_to_k8s_shared_resource():
     """
     Each shared Envfile resource gets a single k8s Service, Deployment and
-    AddressConfigMap.
+    InternalRequiresConfigMap.
     """
     system = SIMPLE_SYSTEM.transform(
         ["application", "requires", "myresource"],
@@ -81,12 +83,12 @@ def test_envfile_to_k8s_shared_resource():
     system = system.transform(
         ["local", "templates", "database"],
         DockerResource(
-            name="database", image="postgres:9.3", port=3535))
+            name="database", image="postgres:9.3", config=dict(port=3535)))
     expected_resource_deployment = k8s.Deployment(
         name="myresource", docker_image="postgres:9.3", port=3535)
     expected_resource_service = k8s.InternalService(
         deployment=expected_resource_deployment)
-    expected_addrconfigmap = k8s.AddressConfigMap(
+    expected_addrconfigmap = k8s.InternalRequiresConfigMap(
         backend_service=expected_resource_service,
         resource_name="myresource")
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
@@ -130,7 +132,7 @@ def test_envfile_k8s_shared_resource_once():
             }, ),
         local=LocalDeployment(templates={
             "database": DockerResource(
-                name="database", image="postgres:9.3", port=3535)
+                name="database", image="postgres:9.3", config=dict(port=3535))
         }))
     k8s_objects = envfile_to_k8s(system)
     assert len([
@@ -169,7 +171,7 @@ def test_envfile_k8s_private_resource_is_private():
         }),
         local=LocalDeployment(templates={
             "database": DockerResource(
-                name="database", image="postgres:9.3", port=3535)
+                name="database", image="postgres:9.3", config=dict(port=3535))
         }))
     k8s_objects = envfile_to_k8s(system)
     assert {
@@ -181,11 +183,31 @@ def test_envfile_k8s_private_resource_is_private():
     }
 
 
-def test_render_addressconfigmap():
-    """An AddressConfigMap renders to a k8s ConfigMap."""
-    addrconfigmap = k8s.AddressConfigMap(
+def test_render_externalrequiresconfigmap():
+    """A ConfigMap renders to a k8s ConfigMap."""
+    addrconfigmap = k8s.ExternalRequiresConfigMap(
+        name="myservice---the-resource",
+        resource_name="the-resource",
+        data={"random": "value", "another": "hello"})
+    assert addrconfigmap.render(k8s.RenderingOptions()) == {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "myservice---the-resource",
+        },
+        "data": {
+            "random": "value",
+            "another": "hello",
+        }
+    }
+
+
+def test_render_internalrequiresconfigmap():
+    """An InternalRequiresConfigMap renders to a k8s ConfigMap."""
+    addrconfigmap = k8s.InternalRequiresConfigMap(
         backend_service=k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT),
-        resource_name="the-resource")
+        resource_name="the-resource",
+        data={"random": "value"})
     assert addrconfigmap.render(k8s.RenderingOptions()) == {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -194,7 +216,8 @@ def test_render_addressconfigmap():
         },
         "data": {
             "host": "myservice",
-            "port": "1234"
+            "port": "1234",
+            "random": "value",
         }
     }
 
@@ -235,9 +258,10 @@ def test_render_deployment():
 
 
 def test_render_deployment_with_configmaps():
-    """A Deployment with AddressConfigMaps turns them into env variables."""
-    addrconfigmap = k8s.AddressConfigMap(
+    """A Deployment with InternalRequiresConfigMaps turns them into env variables."""
+    addrconfigmap = k8s.InternalRequiresConfigMap(
         resource_name="thedb",
+        data={"another": "value"},
         backend_service=k8s.InternalService(
             deployment=SIMPLE_K8S_DEPLOYMENT.set(
                 "name", "myservice---thedb").set("port", 5678)))
@@ -245,6 +269,15 @@ def test_render_deployment_with_configmaps():
                                                           {addrconfigmap})
     expected = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
     env = [
+        {
+            "name": "THEDB_RESOURCE_ANOTHER",
+            "valueFrom": {
+                "configMapKeyRef": {
+                    "name": "myservice---thedb",
+                    "key": "another",
+                }
+            }
+        },
         {
             "name": "THEDB_RESOURCE_HOST",
             "valueFrom": {

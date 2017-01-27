@@ -32,10 +32,10 @@ definitions:
         type: string
       config:
         type: object
-        properties:
-          port:
-            type: integer
-        additionalProperties: false
+        additionalProperties:
+          oneOf:
+            - type: string
+            - type: integer
         required: ["port"]
 
   requires:
