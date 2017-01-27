@@ -5,7 +5,7 @@ from yaml import safe_load
 
 from ..schema import ValidationError
 from ..envfile import (load_envfile, System, LocalDeployment, DockerImage,
-                       Application, DockerComponent, RequiredComponent, Expose,
+                       Application, DockerResource, RequiredResource, Expose,
                        Service)
 
 
@@ -17,7 +17,7 @@ def test_load_invalid_instance():
         load_envfile({"not": "valid"})
 
 
-def test_service_shared_component_name_uniqueness():
+def test_service_shared_resource_name_uniqueness():
     """Shared requires and services cannot have the same name."""
     bad_instance = """\
 Envfile-version: 1
@@ -52,7 +52,7 @@ application:
     ]
 
 
-def test_service_private_component_name_uniqueness():
+def test_service_private_resource_name_uniqueness():
     """Private requires cannot have the same name as a shared requires."""
     bad_instance = """\
 Envfile-version: 1
@@ -170,7 +170,7 @@ def test_load_valid_instance():
     assert load_envfile(instance) == System(
         application=Application(
             requires={
-                "shared-db": RequiredComponent(
+                "shared-db": RequiredResource(
                     name="shared-db", template="postgresql-v96")
             },
             services={
@@ -181,14 +181,14 @@ def test_load_valid_instance():
                     port=5100,
                     expose=Expose(path="/hello"),
                     requires={
-                        "hello-db": RequiredComponent(
+                        "hello-db": RequiredResource(
                             name="hello-db", template="postgresql-v96")
                     })
             }),
         remote={"type": "kubernetes"},
         local=LocalDeployment(templates={
-            "redis-v3": DockerComponent(
+            "redis-v3": DockerResource(
                 name="redis-v3", image="redis/redis:3", port=6379),
-            "postgresql-v96": DockerComponent(
+            "postgresql-v96": DockerResource(
                 name="postgresql-v96", image="postgres:9.6", port=5432)
         }))

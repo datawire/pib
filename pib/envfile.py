@@ -6,8 +6,8 @@ from pyrsistent import (PClass, field, pmap_field, freeze, ny as match_any,
 from .schema import validate, ENVFILE_SCHEMA, ValidationError
 
 
-class DockerComponent(PClass):
-    """A Docker Component.
+class DockerResource(PClass):
+    """A Docker Resource.
 
     :attr image: The Docker image to run.
     :attr port: The port it listens on.
@@ -18,12 +18,12 @@ class DockerComponent(PClass):
 
 
 class LocalDeployment(PClass):
-    """Runs services and components on Minikube."""
-    templates = pmap_field(str, DockerComponent)
+    """Runs services and resources on Minikube."""
+    templates = pmap_field(str, DockerResource)
 
 
-class RequiredComponent(PClass):
-    """A required component."""
+class RequiredResource(PClass):
+    """A required resource."""
     name = field(mandatory=True, type=str)
     template = field(mandatory=True, type=str)
 
@@ -51,13 +51,13 @@ class Service(PClass):
     image = field(mandatory=True, type=DockerImage)
     port = field(type=(type(None), int), initial=None)
     expose = field(mandatory=True, type=Expose)
-    requires = pmap_field(str, RequiredComponent)
+    requires = pmap_field(str, RequiredResource)
 
 
 class Application(PClass):
-    """An application composed of services and components."""
+    """An application composed of services and resources."""
     services = pmap_field(str, Service)
-    requires = pmap_field(str, RequiredComponent)
+    requires = pmap_field(str, RequiredResource)
 
 
 class System(PClass):
@@ -145,10 +145,10 @@ def load_envfile(instance):
     instance = instance.transform(
         ["application", "services", match_any, "requires"], add_name)
 
-    # 2. Port is first-class value on DockerComponent:
-    def move_port(docker_component):
-        port = docker_component["config"]["port"]
-        return docker_component.remove("config").set("port", port)
+    # 2. Port is first-class value on DockerResource:
+    def move_port(docker_resource):
+        port = docker_resource["config"]["port"]
+        return docker_resource.remove("config").set("port", port)
 
     instance = instance.transform(["local", "templates", match_any], move_port)
     return System.create(instance)

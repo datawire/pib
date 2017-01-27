@@ -7,8 +7,8 @@
 As a developer I am building a new service in an existing system.
 It goes through the following stages:
 
-1. I am building it in isolation; I am not yet thinking about interacting with other components.
-2. I am interacting with other components; conceivably we could have a shared piece of infrastructure, e.g. database or queue.
+1. I am building it in isolation; I am not yet thinking about interacting with other resources.
+2. I am interacting with other resources; conceivably we could have a shared piece of infrastructure, e.g. database or queue.
    I still don't want it deployed to production environments.
 3. I want it to go live.
 

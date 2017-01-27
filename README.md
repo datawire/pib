@@ -52,8 +52,8 @@ you@yourlaptop:~/pib $ ls -l hello/Dockerfile
 You can now codify the system's overall shape by creating a `Envfile.yaml`.
 For now we'll create it in `~/pib`, but for production-use you'd want the config in its own version control repository.
 
-Initially you just have a simple system-level config: a single service (`hello`, to match its directory name) with a single required component.
-Later you can add more services, shared components, and more.
+Initially you just have a simple system-level config: a single service (`hello`, to match its directory name) with a single required resource.
+Later you can add more services, shared resources, and more.
 
 ```yaml
 Envfile-version: 1
@@ -104,13 +104,13 @@ This will:
 2. Run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
 3. As you change your code the containers will be updated with the latest version of the code.
 
-Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_COMPONENT_HOST` and `HELLO_DB_COMPONENT_PORT`.
-In general the environment variables are of the form `<template>_COMPONENT_HOST/PORT` where `template` is the template chosen in the requirement.
+Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_RESOURCE_HOST` and `HELLO_DB_RESOURCE_PORT`.
+In general the environment variables are of the form `<template>_RESOURCE_HOST/PORT` where `template` is the template chosen in the requirement.
 
 ### Multiple services
 
-Pib allows you define multiple services for your application, each with its own private required components.
-You can also share components across services.
+Pib allows you define multiple services for your application, each with its own private required resources.
+You can also share resources across services.
 In the following example `Envfile.yaml` you can see two services that share the same ElasticSearch:
 
 ```yaml
@@ -118,7 +118,7 @@ Envfile-version: 1
 
 application:
   requires:
-    logs-es: # <--- this component will be accessible to all services
+    logs-es: # <--- this resource will be accessible to all services
       template: elasticsearch
   services:
     service-a:
@@ -195,8 +195,8 @@ A pib configuration for your services allows you to:
 
 Features include:
 
-* Per-service component configuration.
-* Shared components for your services.
+* Per-service resource configuration.
+* Shared resources for your services.
   E.g. perhaps you have one service that writes to PostgreSQL and another that reads from the same PostgreSQL.
 * Support multiple environments by having different branches in the git repository where the `Envfile.yaml` is stored.
   E.g. you can have a staging and production setup.
