@@ -10,11 +10,11 @@ class DockerResource(PClass):
     """A Docker Resource.
 
     :attr image: The Docker image to run.
-    :attr port: The port it listens on.
+    :attr config: Configuration parameters, typically will have "port" key.
     """
     name = field(type=str)
     image = field(mandatory=True, type=str)
-    port = field(mandatory=True, type=int)
+    config = pmap_field(str, (int, str))
 
 
 class LocalDeployment(PClass):
@@ -127,12 +127,12 @@ def load_envfile(instance):
     # We do however make some minor changes.
     instance = freeze(instance)
 
-    # 0. Drop unneeded fields:
+    # 1. Drop unneeded fields:
     instance = instance.remove("Envfile-version")
     instance = instance.transform(["local", "templates", match_any, "type"],
                                   discard)
 
-    # 1. Some objects want to know their own name:
+    # 2. Some objects want to know their own name:
     def add_name(mapping):
         # Convert {a: {x: 1}} to {a: {name: a, x: 1}}:
         for key, value in mapping.items():
@@ -145,10 +145,4 @@ def load_envfile(instance):
     instance = instance.transform(
         ["application", "services", match_any, "requires"], add_name)
 
-    # 2. Port is first-class value on DockerResource:
-    def move_port(docker_resource):
-        port = docker_resource["config"]["port"]
-        return docker_resource.remove("config").set("port", port)
-
-    instance = instance.transform(["local", "templates", match_any], move_port)
     return System.create(instance)
