@@ -92,7 +92,7 @@ class Deployment(PClass):
                 env.append({
                     "name":
                     "{}_RESOURCE_{}".format(name.upper().replace("-", "_"),
-                                             value.upper()),
+                                            value.upper()),
                     "valueFrom": {
                         "configMapKeyRef": {
                             # ConfigMap k8s object has same name as the
