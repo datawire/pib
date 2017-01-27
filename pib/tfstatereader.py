@@ -85,6 +85,7 @@ class ExtractedState:
 
 RESOURCE_FACTORIES = {
     'aws_db_instance': AwsDatabaseResource.create,
+    'aws_rds_cluster': AwsDatabaseResource.create,
     'aws_elasticsearch_domain': AwsElasticsearchDomain.create
 }
 
