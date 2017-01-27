@@ -97,7 +97,6 @@ class RunLocal(object):
 
         :return str: the Docker tag to use.
         """
-        # 1. Rebuild Docker images inside Minikube Docker process:
         tag = run_result(
             ["git", "describe", "--tags", "--dirty", "--always", "--long"],
             cwd=str(directory)) + "-" + str(time())
@@ -107,7 +106,8 @@ class RunLocal(object):
         ])
         return tag
 
-    def rebuild_docker_images(self, envfile, services_directory):
+    def rebuild_docker_images(self, envfile, services_directory,
+                              echo=lambda s: None):
         """Rebuild the Docker images for all local services.
 
         :return dict: map service name to tag to use.
@@ -118,11 +118,16 @@ class RunLocal(object):
             # If we have local checkout use local code:
             subdir = services_directory / name
             if subdir.exists():
+                echo("Service {} found in {}, rebuilding Docker image...".format(
+                    name, services_directory.absolute()))
                 tag_overrides[name] = self._rebuild_docker_image(service.image,
                                                                  subdir)
             else:
                 # Otherwise, use tag in Envfile.yaml:
                 # By default use the tag in the Envfile.yaml:
+                echo("Service {} not found in {}, using tag '{}'"
+                     " from Envfile.yaml.".format(
+                         name, services_directory.absolute(), service.image.tag))
                 tag_overrides[name] = service.image.tag
         return tag_overrides
 

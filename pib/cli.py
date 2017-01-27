@@ -58,8 +58,8 @@ def load_envfile(config_path):
 
 def redeploy(run_local, envfile, services_directory):
     """Redeploy currently checked out version of the code."""
-    tag_overrides = run_local.rebuild_docker_images(envfile,
-                                                    services_directory)
+    tag_overrides = run_local.rebuild_docker_images(
+        envfile, services_directory, echo=click.echo)
     run_local.deploy(envfile, tag_overrides)
 
 
