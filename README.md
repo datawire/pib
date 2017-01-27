@@ -1,13 +1,39 @@
 # Pib
 
-Pib lets you develop your application and the services that compose it as a system.
-You get a coherent, system-level view of your application, not just a pile of AMIs or Docker images.
+## Motivation
+
+### Modern applications are systems
+
+Many modern applications are a system, composed of a number of business logic *services*.
+
+For example, you might be building a website that has multiple services: a main one for HTTP and a secondary one for pushing WebSocket events to the browser.
+Or you might be building a data ingestion pipeline: one service accepts events and pushes them to a database or queue, and other services read that data from the database/queue.
+
+Each service relies on a number of *resources*, things like PostgreSQL, Redis, ElasticSearch or Kafka.
+Some resources might only be used by a single service, and some might be shared.
+
+### Developing and deploying systems is harder
+
+Developing these modern applications introduces new problems:
+
+* How do you spin up a service and its dependencies, or the whole system, for local development?
+  Tools like Docker Compose help, but they usually can't be used to describe your production system.
+* How do you spin up a service and its dependencies in a production environment?
+  Tools like Terraform can deploy your infrastructure, but won't help with local development.
+* How do you deal with a combination of container infrastructure and cloud infrastructure?
+  Deploying to both Kubernetes and AWS in sync can be difficult.
+
+### Pib: an end-to-end solution
+
+Pib provides a way for you to describe your application and the services that compose it as a system.
+Once you've written that description you have a single coherent, system-level view of your application.
+And you can use this single description both for local development and, with additional configuration, for production deployments.
 
 That means:
 
 * You can develop locally with a fast feedback loop.
 * Your production environment can use infrastructure like AWS RDS.
-* You can trust that local development and production are still as similar as possible, because they both run off the same system-level configuration.
+* You can trust that local development and production are still as similar as possible, because they both run off the same system-level description..
 
 ## Warning: work-in-progress, changing rapidly
 
@@ -26,8 +52,8 @@ you@yourlaptop:~/pib $ ls -l hello/Dockerfile
 You can now codify the system's overall shape by creating a `Envfile.yaml`.
 For now we'll create it in `~/pib`, but for production-use you'd want the config in its own version control repository.
 
-Initially you just have a simple system-level config: a single service (`hello`, to match its directory name) with a single required component.
-Later you can add more services, shared components, and more.
+Initially you just have a simple system-level config: a single service (`hello`, to match its directory name) with a single required resource.
+Later you can add more services, shared resources, and more.
 
 ```yaml
 Envfile-version: 1
@@ -78,13 +104,13 @@ This will:
 2. Run your application and its dependencies, in this case PostgreSQL, inside a local Kubernetes setup.
 3. As you change your code the containers will be updated with the latest version of the code.
 
-Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_COMPONENT_HOST` and `HELLO_DB_COMPONENT_PORT`.
-In general the environment variables are of the form `<template>_COMPONENT_HOST/PORT` where `template` is the template chosen in the requirement.
+Your service code can find the address the of the PostgreSQL server by looking at the environment variables `HELLO_DB_RESOURCE_HOST` and `HELLO_DB_RESOURCE_PORT`.
+In general the environment variables are of the form `<template>_RESOURCE_HOST/PORT` where `template` is the template chosen in the requirement.
 
 ### Multiple services
 
-Pib allows you define multiple services for your application, each with its own private required components.
-You can also share components across services.
+Pib allows you define multiple services for your application, each with its own private required resources.
+You can also share resources across services.
 In the following example `Envfile.yaml` you can see two services that share the same ElasticSearch:
 
 ```yaml
@@ -92,7 +118,7 @@ Envfile-version: 1
 
 application:
   requires:
-    logs-es: # <--- this component will be accessible to all services
+    logs-es: # <--- this resource will be accessible to all services
       template: elasticsearch
   services:
     service-a:
@@ -169,8 +195,8 @@ A pib configuration for your services allows you to:
 
 Features include:
 
-* Per-service component configuration.
-* Shared components for your services.
+* Per-service resource configuration.
+* Shared resources for your services.
   E.g. perhaps you have one service that writes to PostgreSQL and another that reads from the same PostgreSQL.
 * Support multiple environments by having different branches in the git repository where the `Envfile.yaml` is stored.
   E.g. you can have a staging and production setup.
