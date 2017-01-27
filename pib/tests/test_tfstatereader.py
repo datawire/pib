@@ -216,4 +216,232 @@ INSTANCE = r"""
 
 def test_extract():
     extracted = extract(INSTANCE)
-    assert 2 == extracted.size()
+    assert 2 == extracted.size()  # because the above JSON has a resource which will not be injected
+
+
+def test_unregistered_type_is_skipped():
+    data = r"""{
+    "version": 3,
+    "terraform_version": "0.7.4",
+    "serial": 108,
+    "lineage": "79cc5f6a-b3b7-4b86-93e6-987ae7f373eb",
+    "modules": [{
+        "path": [
+            "root",
+            "mcp_postgres_dev"
+        ],
+        "outputs": {},
+        "resources": {
+            "aws_db_instance.main": {
+                "type": "aws_db_NOTREALLYATYPE",
+                "depends_on": [
+                    "aws_db_subnet_group.main"
+                ],
+                "primary": {
+                    "id": "mcp-develop",
+                    "attributes": {
+                        "address": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com",
+                        "allocated_storage": "10",
+                        "allow_major_version_upgrade": "true",
+                        "arn": "arn:aws:rds:us-east-1:914373874199:db:mcp-develop",
+                        "auto_minor_version_upgrade": "true",
+                        "availability_zone": "us-east-1c",
+                        "backup_retention_period": "0",
+                        "backup_window": "04:34-05:04",
+                        "copy_tags_to_snapshot": "false",
+                        "db_subnet_group_name": "mcp-develop",
+                        "endpoint": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com:5432",
+                        "engine": "postgres",
+                        "engine_version": "9.6.1",
+                        "id": "mcp-develop",
+                        "identifier": "mcp-develop",
+                        "instance_class": "db.t2.micro",
+                        "iops": "0",
+                        "kms_key_id": "",
+                        "license_model": "postgresql-license",
+                        "maintenance_window": "fri:05:42-fri:06:12",
+                        "monitoring_interval": "0",
+                        "multi_az": "false",
+                        "name": "",
+                        "option_group_name": "default:postgres-9-6",
+                        "parameter_group_name": "default.postgres9.6",
+                        "password": "REDACTED_PASSWORD",
+                        "port": "5432",
+                        "publicly_accessible": "false",
+                        "replicas.#": "0",
+                        "replicate_source_db": "",
+                        "security_group_names.#": "0",
+                        "skip_final_snapshot": "true",
+                        "status": "available",
+                        "storage_encrypted": "false",
+                        "storage_type": "gp2",
+                        "tags.%": "1",
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"component_name\":\"postgres96\" }",
+                        "username": "REDACTED_USERNAME",
+                        "vpc_security_group_ids.#": "1",
+                        "vpc_security_group_ids.548992056": "sg-d43d90a9"
+                    },
+                    "meta": {},
+                    "tainted": false
+                },
+                "deposed": [],
+                "provider": ""
+            }
+        },
+        "depends_on": []
+    }]}"""
+
+    extracted = extract(data)
+    assert 0 == extracted.size()
+
+
+def test_no_metadata_is_skipped():
+    data = r"""{
+    "version": 3,
+    "terraform_version": "0.7.4",
+    "serial": 108,
+    "lineage": "79cc5f6a-b3b7-4b86-93e6-987ae7f373eb",
+    "modules": [{
+        "path": [
+            "root",
+            "mcp_postgres_dev"
+        ],
+        "outputs": {},
+        "resources": {
+            "aws_db_instance.main": {
+                "type": "aws_db_instance",
+                "depends_on": [
+                    "aws_db_subnet_group.main"
+                ],
+                "primary": {
+                    "id": "mcp-develop",
+                    "attributes": {
+                        "address": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com",
+                        "allocated_storage": "10",
+                        "allow_major_version_upgrade": "true",
+                        "arn": "arn:aws:rds:us-east-1:914373874199:db:mcp-develop",
+                        "auto_minor_version_upgrade": "true",
+                        "availability_zone": "us-east-1c",
+                        "backup_retention_period": "0",
+                        "backup_window": "04:34-05:04",
+                        "copy_tags_to_snapshot": "false",
+                        "db_subnet_group_name": "mcp-develop",
+                        "endpoint": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com:5432",
+                        "engine": "postgres",
+                        "engine_version": "9.6.1",
+                        "id": "mcp-develop",
+                        "identifier": "mcp-develop",
+                        "instance_class": "db.t2.micro",
+                        "iops": "0",
+                        "kms_key_id": "",
+                        "license_model": "postgresql-license",
+                        "maintenance_window": "fri:05:42-fri:06:12",
+                        "monitoring_interval": "0",
+                        "multi_az": "false",
+                        "name": "",
+                        "option_group_name": "default:postgres-9-6",
+                        "parameter_group_name": "default.postgres9.6",
+                        "password": "REDACTED_PASSWORD",
+                        "port": "5432",
+                        "publicly_accessible": "false",
+                        "replicas.#": "0",
+                        "replicate_source_db": "",
+                        "security_group_names.#": "0",
+                        "skip_final_snapshot": "true",
+                        "status": "available",
+                        "storage_encrypted": "false",
+                        "storage_type": "gp2",
+                        "tags.%": "0",
+                        "username": "REDACTED_USERNAME",
+                        "vpc_security_group_ids.#": "1",
+                        "vpc_security_group_ids.548992056": "sg-d43d90a9"
+                    },
+                    "meta": {},
+                    "tainted": true
+                },
+                "deposed": [],
+                "provider": ""
+            }
+        },
+        "depends_on": []
+    }]}"""
+
+    extracted = extract(data)
+    assert 0 == extracted.size()
+
+
+def test_tainted_is_skipped():
+
+    data = r"""{
+    "version": 3,
+    "terraform_version": "0.7.4",
+    "serial": 108,
+    "lineage": "79cc5f6a-b3b7-4b86-93e6-987ae7f373eb",
+    "modules": [{
+        "path": [
+            "root",
+            "mcp_postgres_dev"
+        ],
+        "outputs": {},
+        "resources": {
+            "aws_db_instance.main": {
+                "type": "aws_db_instance",
+                "depends_on": [
+                    "aws_db_subnet_group.main"
+                ],
+                "primary": {
+                    "id": "mcp-develop",
+                    "attributes": {
+                        "address": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com",
+                        "allocated_storage": "10",
+                        "allow_major_version_upgrade": "true",
+                        "arn": "arn:aws:rds:us-east-1:914373874199:db:mcp-develop",
+                        "auto_minor_version_upgrade": "true",
+                        "availability_zone": "us-east-1c",
+                        "backup_retention_period": "0",
+                        "backup_window": "04:34-05:04",
+                        "copy_tags_to_snapshot": "false",
+                        "db_subnet_group_name": "mcp-develop",
+                        "endpoint": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com:5432",
+                        "engine": "postgres",
+                        "engine_version": "9.6.1",
+                        "id": "mcp-develop",
+                        "identifier": "mcp-develop",
+                        "instance_class": "db.t2.micro",
+                        "iops": "0",
+                        "kms_key_id": "",
+                        "license_model": "postgresql-license",
+                        "maintenance_window": "fri:05:42-fri:06:12",
+                        "monitoring_interval": "0",
+                        "multi_az": "false",
+                        "name": "",
+                        "option_group_name": "default:postgres-9-6",
+                        "parameter_group_name": "default.postgres9.6",
+                        "password": "REDACTED_PASSWORD",
+                        "port": "5432",
+                        "publicly_accessible": "false",
+                        "replicas.#": "0",
+                        "replicate_source_db": "",
+                        "security_group_names.#": "0",
+                        "skip_final_snapshot": "true",
+                        "status": "available",
+                        "storage_encrypted": "false",
+                        "storage_type": "gp2",
+                        "tags.%": "1",
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"component_name\":\"postgres96\" }",
+                        "username": "REDACTED_USERNAME",
+                        "vpc_security_group_ids.#": "1",
+                        "vpc_security_group_ids.548992056": "sg-d43d90a9"
+                    },
+                    "meta": {},
+                    "tainted": true
+                },
+                "deposed": [],
+                "provider": ""
+            }
+        },
+        "depends_on": []
+    }]}"""
+
+    extracted = extract(data)
+    assert 0 == extracted.size()
