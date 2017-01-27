@@ -65,10 +65,6 @@ class ExtractedState:
 
         self.app_resources[resource.metadata.app].append(resource)
 
-        print(resource.metadata.app)
-        print(resource.metadata.service)
-        print(resource.metadata.component_name)
-
         # resource.service can be None which means it's shared and therefore doesn't belong to any particular resource.
         if resource.metadata.service is not None and resource.metadata.service not in self.svc_resources:
             self.svc_resources[resource.metadata.service] = []
@@ -96,15 +92,6 @@ RESOURCE_FACTORIES = {
 def extract(raw_json):
     """Terraform stores state in a convenient-ish JSON format. This """
 
-    # def flatten_hook(obj):
-    #     for key, value in obj.items():
-    #         if isinstance(value, str):
-    #             try:
-    #                 obj[key] = json.loads(value, object_hook=flatten_hook)
-    #             except ValueError:
-    #                 pass
-    #     return obj
-
     tfstate = json.loads(raw_json)
     extracted = ExtractedState()
 
@@ -122,7 +109,7 @@ def extract_resources_from_module(result, mod):
 
         # there's a huge number of Terraform resources we can't do anything intelligent with.
         if tf_data['type'] not in RESOURCE_FACTORIES:
-            print("SKIP: no type handle for {}".format(tf_data['type']))
+            print("SKIP: no type handler for type {}".format(tf_data['type']))
             continue
 
         # TODO(plombardi): INVESTIGATE
@@ -132,7 +119,7 @@ def extract_resources_from_module(result, mod):
 
         # tainted stuff is going to be destroyed by Terraform so do not do anything with it.
         if primary['tainted']:
-            print("SKIP: tainted resourced")
+            print("SKIP: tainted resource")
             continue
 
         attributes = primary['attributes']
