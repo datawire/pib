@@ -14,14 +14,14 @@ def _render_configmap(name, data):
     """
     Return JSON for a ConfigMap.
 
-    :param name str: The name of the ConfigMap.
+    :param name str: The name of the configmap.
     :param data dict: The data included in the ConfigMap.
     """
     return {
         "apiVersion": "v1",
         "kind": "ConfigMap",
         "metadata": {
-            "name": name
+            "name": name,
         },
         "data": data
     }
@@ -32,12 +32,14 @@ class ExternalRequiresConfigMap(PClass):
     Kubernetes ConfigMap pointing an external resource (e.g. AWS RDS) for a
     specific required resource.
     """
-    component_name = field(mandatory=True, type=str)  # original component name
+    # TODO the name should be either the requires name for shared requires, or
+    # "<service name>---<requires name>" for private resources:
+    name = field(mandatory=True, type=str)  # The name of this ConfigMap
+    resource_name = field(mandatory=True, type=str)  # original resource name
     data = pmap_field(str, str)  # the information stored in the ConfigMap
-    # XXX how to deal with naming
 
     def render(self, options):
-        return _render_configmap(XXX, thaw(self.data))
+        return _render_configmap(self.name, thaw(self.data))
 
 
 class InternalRequiresConfigMap(PClass):

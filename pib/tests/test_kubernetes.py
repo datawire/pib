@@ -184,18 +184,18 @@ def test_envfile_k8s_private_resource_is_private():
 def test_render_externalrequiresconfigmap():
     """A ConfigMap renders to a k8s ConfigMap."""
     addrconfigmap = k8s.ExternalRequiresConfigMap(
-        component_name="the-component",
+        name="myservice---the-resource",
+        resource_name="the-resource",
         data={"random": "value", "another": "hello"})
     assert addrconfigmap.render(k8s.RenderingOptions()) == {
         "apiVersion": "v1",
         "kind": "ConfigMap",
         "metadata": {
-            "name": "myservice",
+            "name": "myservice---the-resource",
         },
         "data": {
-            "host": "myservice",
-            "port": "1234",
             "random": "value",
+            "another": "hello",
         }
     }
 
