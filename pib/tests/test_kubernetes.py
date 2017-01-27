@@ -181,11 +181,11 @@ def test_envfile_k8s_private_component_is_private():
     }
 
 
-def test_render_addressconfigmap():
-    """An AddressConfigMap renders to a k8s ConfigMap."""
-    addrconfigmap = k8s.AddressConfigMap(
-        backend_service=k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT),
-        component_name="the-component")
+def test_render_configmap():
+    """A ConfigMap renders to a k8s ConfigMap."""
+    addrconfigmap = k8s.ConfigMap(
+        component_name="the-component",
+        data={"random": "value", "another": "hello"})
     assert addrconfigmap.render(k8s.RenderingOptions()) == {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -194,7 +194,28 @@ def test_render_addressconfigmap():
         },
         "data": {
             "host": "myservice",
-            "port": "1234"
+            "port": "1234",
+            "random": "value",
+        }
+    }
+
+
+def test_render_addressconfigmap():
+    """An AddressConfigMap renders to a k8s ConfigMap."""
+    addrconfigmap = k8s.AddressConfigMap(
+        backend_service=k8s.InternalService(deployment=SIMPLE_K8S_DEPLOYMENT),
+        component_name="the-component",
+        data={"random": "value"})
+    assert addrconfigmap.render(k8s.RenderingOptions()) == {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "myservice",
+        },
+        "data": {
+            "host": "myservice",
+            "port": "1234",
+            "random": "value",
         }
     }
 

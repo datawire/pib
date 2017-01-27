@@ -1,6 +1,6 @@
 """Kubernetes integration for Pib."""
 
-from pyrsistent import PClass, field, pset_field, pset, pmap_field
+from pyrsistent import PClass, field, pset_field, pset, pmap_field, thaw
 
 
 class RenderingOptions(PClass):
@@ -10,31 +10,74 @@ class RenderingOptions(PClass):
     # TODO: eventually ClusterIP vs NodePort can go here
 
 
-class AddressConfigMap(PClass):
-    """Kubernetes ConfigMap representation pointing at an InternalService.
+def _render_configmap(name, data):
+    """Return JSON for a ConfigMap.
+
+    :param name str: The name of the ConfigMap.
+    :param data dict: The data included in the ConfigMap.
+    """
+    return {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": name
+        },
+        "data": data
+    }
+
+
+class ExternalRequiresConfigMap(PClass):
+    """
+    Kubernetes ConfigMap pointing an external resource (e.g. AWS RDS) for a
+    specific required resource.
+    """
+    component_name = field(mandatory=True, type=str)  # original component name
+    data = pmap_field(str, str)  # the information stored in the ConfigMap
+    # XXX how to deal with naming
+
+    def render(self, options):
+        return _render_configmap(XXX, thaw(self.data))
+
+
+class InternalRequiresConfigMap(PClass):
+    """
+    Kubernetes ConfigMap representation pointing at an InternalService used for
+    a resource.
 
     This will be used to give a envfile service the addresses of envfile
-    deployments.
+    resources when used in local (minikube) mode.
     """
-    # TODO: When we support external services (e.g. AWS RDS) this may point at
-    # those as well.
     # type=InternalService blows up pyrsistent :(
     backend_service = field(mandatory=True)
     component_name = field(mandatory=True, type=str)  # original component name
+    data = pmap_field(str, str)  # the information stored in the ConfigMap
 
     def render(self, options):
-        """Convert to a Kubernetes YAML/JSON config (as Python objects)."""
-        return {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": {
-                "name": self.backend_service.deployment.name,
-            },
-            "data": {
+        return _render_configmap(
+            self.backend_service.deployment.name,
+            thaw(self.data.update({
                 "host": self.backend_service.deployment.name,
-                "port": str(self.backend_service.deployment.port)
-            }
-        }
+                "port": str(self.backend_service.deployment.port),
+            })
+        )
+
+
+class InternalResourceConfigMap(ConfigMap):
+    """
+    Kubernetes ConfigMap representation pointing at an InternalService used for
+    a resource.
+
+    This will be used to give a envfile service the addresses of envfile
+    resources when used in local (minikube) mode.
+    """
+    # type=InternalService blows up pyrsistent :(
+    backend_service = field(mandatory=True)
+
+    def _get_data(self):
+        return ConfigMap._get_data(self).update({
+            "host": self.backend_service.deployment.name,
+            "port": str(self.backend_service.deployment.port)
+        })
 
 
 class Deployment(PClass):
