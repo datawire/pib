@@ -73,7 +73,9 @@ class Injectable(PClass):
 
 def _create_aws_elasticsearch_domain(tf_data):
     return {'HOST': tf_data['attributes']['endpoint'],
-            'PORT': "80"}  # doesn't have one...
+            # AWS docs suggest it's always port 80:
+            # http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-gsg-search.html
+            'PORT': "80"}
 
 
 def _create_aws_database_resource(tf_data):
