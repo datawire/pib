@@ -1,9 +1,14 @@
+"""Convert terraform state into Kuberentes configuration."""
+
 import boto3
 import botocore
 import json
 
+from .kubernetes import ExternalRequiresConfigMap
+
 
 class Metadata:
+    """Metadata for a particular resource, e.g. AWS RDS instance."""
 
     def __init__(self, app, service, component_name):
         self.app = app
@@ -51,22 +56,16 @@ class S3State:
 
 
 class Injectable:
-
+    """An object that can be injected as configuration into Kubernetes."""
     def __init__(self, metadata, config):
-        # TODO: this may not actually need to exist if the ExternalRequiresConfigMap can generate it properly.
-        for k, v in config.items():
-            del config[k]
-            config[metadata.component_name + '_COMPONENT_' + k] = v
-
         self.config = config
         self.metadata = metadata
 
     def render(self):
-        from .kubernetes import ExternalRequiresConfigMap
-        # TODO: this code likely needs some revision once the policy of how many ConfigMaps is determined...
-        return ExternalRequiresConfigMap(name=self.metadata.service or self.metadata.app,
-                                         resource_name=self.metadata.component_name,
-                                         data=self.config)
+        return ExternalRequiresConfigMap(
+            name=self.metadata.service,
+            resource_name=self.metadata.component_name,
+            data=self.config)
 
 
 class AwsElasticsearchDomain(Injectable):
@@ -77,7 +76,7 @@ class AwsElasticsearchDomain(Injectable):
     @staticmethod
     def create(pib_metadata, tf_data):
         config = {'HOST': tf_data['attributes']['endpoint'],
-                  'PORT': ""}  # doesn't have one...
+                  'PORT': "80"}  # doesn't have one...
 
         return AwsElasticsearchDomain(pib_metadata, config)
 
@@ -98,26 +97,22 @@ class AwsDatabaseResource(Injectable):
 
 
 class ExtractedState:
-
+    """Injectables extracted from terraform state."""
     def __init__(self):
         self.all = []
-        self.app_resources = {}
-        self.svc_resources = {}
+        self.app_resources = {}  # map app name to Injectable
+        self.svc_resources = {}  # map service name to Injectable
 
     def add_resource(self, resource):
         self.all.append(resource)
+        self.app_resources.setdefault(
+            resource.metadata.app, []).append(resource)
 
-        if resource.metadata.app not in self.app_resources:
-            self.app_resources[resource.metadata.app] = []
-
-        self.app_resources[resource.metadata.app].append(resource)
-
-        # resource.service can be None which means it's shared and therefore doesn't belong to any particular resource.
-        if resource.metadata.service is not None and resource.metadata.service not in self.svc_resources:
-            self.svc_resources[resource.metadata.service] = []
-
+        # resource.service can be None which means it's shared and therefore
+        # doesn't belong to any particular resource.
         if resource.metadata.service is not None:
-            self.svc_resources[resource.metadata.service].append(resource)
+            self.svc_resources.setdefault(
+                resource.metadata.service, []).append(resource)
 
     def clear(self):
         self.all.clear()
@@ -139,8 +134,7 @@ RESOURCE_FACTORIES = {
 
 
 def extract(raw_json):
-    """Terraform stores state in a convenient-ish JSON format. This """
-
+    """Convert terraform JSON state into an ExtractedState object."""
     tfstate = json.loads(raw_json)
     extracted = ExtractedState()
 
@@ -151,12 +145,14 @@ def extract(raw_json):
 
 
 def extract_resources_from_module(result, mod):
-
-    # module.resources is a dictionary that maps the Terraform templates resource name to data about that resource. We
-    # are not interested in that value. The interesting info lies in the tf_data dictionary.
+    """Extract resources from a terraform state module."""
+    # module.resources is a dictionary that maps the Terraform templates
+    # resource name to data about that resource. We are not interested in that
+    # value. The interesting info lies in the tf_data dictionary.
     for tf_name, tf_data in mod.get('resources', {}).items():
 
-        # there's a huge number of Terraform resources we can't do anything intelligent with.
+        # there's a huge number of Terraform resources we can't do anything
+        # intelligent with.
         if tf_data['type'] not in RESOURCE_FACTORIES:
             print("SKIP: no type handler for type {}".format(tf_data['type']))
             continue
@@ -166,7 +162,8 @@ def extract_resources_from_module(result, mod):
         # data is the stuff we're after.
         primary = tf_data['primary']
 
-        # tainted stuff is going to be destroyed by Terraform so do not do anything with it.
+        # tainted stuff is going to be destroyed by Terraform so do not do
+        # anything with it.
         if primary['tainted']:
             print("SKIP: tainted resource")
             continue
@@ -174,9 +171,10 @@ def extract_resources_from_module(result, mod):
         attributes = primary['attributes']
         tags = extract_tags(attributes)
 
-        # The metadata holds app and service name information. We use a JSON object to store that information to avoid
-        # wasting AWS resource tags because each resource can only have a maximum of 10. If a resource does not have
-        # metadata it's not meant to be consumed.
+        # The metadata holds app and service name information. We use a JSON
+        # object to store that information to avoid wasting AWS resource tags
+        # because each resource can only have a maximum of 10. If a resource
+        # does not have metadata it's not meant to be consumed.
         raw_metadata = json.loads(tags.get('pib_metadata', '{}'))
         if not raw_metadata:
             print("SKIP: no metadata")
@@ -193,7 +191,8 @@ def extract_resources_from_module(result, mod):
 def extract_tags(attributes):
     result = {}
     for k, v in attributes.items():
-        # no idea why they seem to use .# and .% at different types or if means something...
+        # TODO: no idea why they seem to use .# and .% at different types or if
+        # means something...
         if k.startswith('tags.') and k not in {'tags.#', 'tags.%'}:
             result[k.split('.', 1)[-1]] = v
 
