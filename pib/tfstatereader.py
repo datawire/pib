@@ -57,43 +57,31 @@ class S3State:
 
 class Injectable:
     """An object that can be injected as configuration into Kubernetes."""
-    def __init__(self, metadata, config):
-        self.config = config
-        self.metadata = metadata
+    def __init__(self, resource_type, app, service, resource_name, config):
+        self.resource_type = resource_type  # Mainly useful for debugging
+        self.app = app  # application name
+        self.service = service  # service name, or None if shared resource
+        self.resource_name = resource_name  # name of resource
+        self.config = config  # the configuration to put into k8s ConfigMap
 
     def render(self):
+        name = self.resource_name
+        if self.service is not None:
+            name = self.service + "---" + name
         return ExternalRequiresConfigMap(
-            name=self.metadata.service,
-            resource_name=self.metadata.component_name,
-            data=self.config)
+            name=name, resource_name=self.resource_name, data=self.config)
 
 
-class AwsElasticsearchDomain(Injectable):
-
-    def __init__(self, metadata, config):
-        Injectable.__init__(self, metadata, config)
-
-    @staticmethod
-    def create(pib_metadata, tf_data):
-        config = {'HOST': tf_data['attributes']['endpoint'],
-                  'PORT': "80"}  # doesn't have one...
-
-        return AwsElasticsearchDomain(pib_metadata, config)
+def create_aws_elasticsearch_domain(tf_data):
+    return {'HOST': tf_data['attributes']['endpoint'],
+            'PORT': "80"}  # doesn't have one...
 
 
-class AwsDatabaseResource(Injectable):
-
-    def __init__(self, metadata, config):
-        Injectable.__init__(self, metadata, config)
-
-    @staticmethod
-    def create(pib_metadata, tf_data):
-        config = {'HOST': tf_data['attributes']['address'],
-                  'PORT': tf_data['attributes']['port'],
-                  'USERNAME': tf_data['attributes']['username'],
-                  'PASSWORD': tf_data['attributes']['password']}
-
-        return AwsDatabaseResource(pib_metadata, config)
+def create_aws_database_resource(tf_data):
+    return {'HOST': tf_data['attributes']['address'],
+            'PORT': tf_data['attributes']['port'],
+            'USERNAME': tf_data['attributes']['username'],
+            'PASSWORD': tf_data['attributes']['password']}
 
 
 class ExtractedState:
@@ -105,14 +93,13 @@ class ExtractedState:
 
     def add_resource(self, resource):
         self.all.append(resource)
-        self.app_resources.setdefault(
-            resource.metadata.app, []).append(resource)
+        self.app_resources.setdefault(resource.app, []).append(resource)
 
         # resource.service can be None which means it's shared and therefore
         # doesn't belong to any particular resource.
-        if resource.metadata.service is not None:
-            self.svc_resources.setdefault(
-                resource.metadata.service, []).append(resource)
+        if resource.service is not None:
+            self.svc_resources.setdefault(resource.service, []).append(
+                resource)
 
     def clear(self):
         self.all.clear()
@@ -127,9 +114,9 @@ class ExtractedState:
 
 
 RESOURCE_FACTORIES = {
-    'aws_db_instance': AwsDatabaseResource.create,
-    'aws_rds_cluster': AwsDatabaseResource.create,
-    'aws_elasticsearch_domain': AwsElasticsearchDomain.create
+    'aws_db_instance': create_aws_database_resource,
+    'aws_rds_cluster': create_aws_database_resource,
+    'aws_elasticsearch_domain': create_aws_elasticsearch_domain,
 }
 
 
@@ -158,8 +145,9 @@ def extract_resources_from_module(result, mod):
             continue
 
         # TODO(plombardi): INVESTIGATE
-        # there's a 'primary' and a 'deposed'... I'm not sure what deposed is or if it's relevant to anything. Primary
-        # data is the stuff we're after.
+        # there's a 'primary' and a 'deposed'... I'm not sure what deposed is
+        # or if it's relevant to anything. Primary data is the stuff we're
+        # after.
         primary = tf_data['primary']
 
         # tainted stuff is going to be destroyed by Terraform so do not do
@@ -180,12 +168,12 @@ def extract_resources_from_module(result, mod):
             print("SKIP: no metadata")
             continue
 
-        metadata = Metadata(raw_metadata['app'],
-                            raw_metadata.get('service'),
-                            raw_metadata['component_name'])
-
-        injectable = RESOURCE_FACTORIES[tf_data['type']](metadata, primary)
-        result.add_resource(injectable)
+        result.add_resource(
+            Injectable(tf_data['type'],
+                       raw_metadata.get('app', 'default'),
+                       raw_metadata.get('service'),
+                       raw_metadata['component_name'],
+                       RESOURCE_FACTORIES[tf_data['type']](primary)))
 
 
 def extract_tags(attributes):
