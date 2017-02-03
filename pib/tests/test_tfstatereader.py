@@ -1,4 +1,7 @@
-from ..tfstatereader import extract
+from pyrsistent import pset
+
+from ..tfstatereader import (extract, ExtractedState, ApplicationState,
+                             Injectable)
 
 INSTANCE = r"""
 {
@@ -214,7 +217,34 @@ INSTANCE = r"""
 
 def test_extract():
     extracted = extract(INSTANCE)
-    assert 2 == extracted.size()  # because the above JSON has a resource which will not be injected
+    # the above JSON has a resource which will not be injected
+    assert ExtractedState(applications={
+        "datawire": ApplicationState(
+            shared_resources=pset([
+                Injectable(
+                    resource_type="aws_db_instance",
+                    app="datawire",
+                    service=None,
+                    resource_name="postgres96",
+                    config={"HOST": "mcp-develop.crhykb8ijynb.us-east-1.rds.amazonaws.com",
+                            "PORT": "5432",
+                            "USERNAME": "REDACTED_USERNAME",
+                            "PASSWORD": "REDACTED_PASSWORD"}
+                )
+            ]),
+            service_resources={"trace": pset([
+                Injectable(
+                    resource_type="aws_elasticsearch_domain",
+                    app="datawire",
+                    service="trace",
+                    resource_name="es",
+                    config={
+                        "HOST": "search-tracing-develop-oprqwhmnjzz75m6gy4eh3x6yqy.us-east-1.es.amazonaws.com",
+                        "PORT": "80",
+                    },
+                )
+            ])}),
+    }) == extracted
 
 
 def test_unregistered_type_is_skipped():
@@ -520,3 +550,4 @@ def test_render():
 
     extracted = extract(data)
     assert 1 == extracted.size()
+    # TODO test actual rendering
