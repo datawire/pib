@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
+from io import StringIO
 from functools import wraps
 from pathlib import Path
 from time import sleep
-from sys import stdout, exit
+from traceback import print_exc
+from sys import stdout, exit, version as python_version
+from urllib.parse import quote_plus
+import webbrowser
 import os
 
 import click
 from yaml import safe_load
 
-from .local import RunLocal
+from .local import RunLocal, run_result
 from .schema import ValidationError
 from .envfile import load_envfile as _load_envfile
 from . import __version__
@@ -104,6 +108,39 @@ param_envfile = click.argument(
         readable=True, dir_okay=False, exists=True))
 
 
+BUG_REPORT_TEMPLATE = """\
+### What were you trying to do?
+
+(please tell us)
+
+### What did you expect to happen?
+
+(please tell us)
+
+### What happened instead?
+
+(please tell us - the traceback is automatically included, see below)
+
+### Additional files
+
+(please attach the `pib.log` file from your {} directory, or the output from
+pib if you ran with `--logfile=-`)
+
+(please include your Envfile.yaml if relevant.)
+
+### Automatically included information
+
+Version: `{}`
+Python version: `{}`
+OS: `{}`
+Traceback:
+
+```
+{}
+```
+"""
+
+
 def handle_unexpected_errors(f):
     """Decorator that catches unexpected errors."""
 
@@ -112,27 +149,20 @@ def handle_unexpected_errors(f):
         try:
             return f(*args, **kwargs)
         except Exception as e:
+            errorf = StringIO()
+            print_exc(file=errorf)
+            error = errorf.getvalue()
             click.echo(
-                "Looks like there's a bug in our code. Sorry about that!\n")
-            click.echo(
-                click.style(
-                    "We'd really appreciate it if you could file an issue at ",
-                    bold=True) + click.style(
-                        "https://github.com/datawire/pib/issues/new",
-                        bold=True,
-                        underline=True) + click.style(
-                            " with the following information:", bold=True))
-            click.echo("""\
-
-1. The command you ran.
-2. The output of `pib --version`.
-3. The traceback and error printed below.
-4. The contents of your pib.log file (it should be in the current directory).
-5. Your Envfile.yaml if you're OK sharing it.
-
-Here's the traceback and error from the code:
-""")
-            raise
+                "Looks like there's a bug in our code. Sorry about that!"
+                " Here's the traceback:\n" + error)
+            if click.confirm(
+                    "Would you like to file an issue in our issue tracker?",
+                    default=True, abort=True):
+                url = "https://github.com/datawire/pib/issues/new?body="
+                body = quote_plus(BUG_REPORT_TEMPLATE.format(
+                    os.getcwd(), __version__, python_version,
+                    run_result(["uname", "-a"]), error))
+                webbrowser.open_new(url + body)
 
     return call_f
 
