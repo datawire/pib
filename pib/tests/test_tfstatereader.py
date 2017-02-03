@@ -1,6 +1,4 @@
-import pytest
-
-from ..tfstatereader import extract, ExtractedState
+from ..tfstatereader import extract
 
 INSTANCE = r"""
 {

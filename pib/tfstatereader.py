@@ -89,6 +89,7 @@ class ExtractedState:
     def render(self, renderer):
         renderer.render(self)
 
+
 RESOURCE_FACTORIES = {
     'aws_db_instance': AwsDatabaseResource.create,
     'aws_rds_cluster': AwsDatabaseResource.create,
