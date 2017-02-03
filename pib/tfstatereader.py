@@ -1,14 +1,16 @@
-import boto3
-import botocore
+"""Convert terraform state into Kuberentes configuration."""
+
 import json
 
+import boto3
+import botocore
+from pyrsistent import PClass, pmap_field, pset_field, field, PSet, freeze
 
-class Metadata:
+from .kubernetes import ExternalRequiresConfigMap
 
-    def __init__(self, app, service, component_name):
-        self.app = app
-        self.service = service
-        self.component_name = component_name
+
+__all__ = ["S3State", "Injectable", "ApplicationState", "ExtractedState",
+           "extract"]
 
 
 class S3State:
@@ -50,150 +52,133 @@ class S3State:
         return res
 
 
-class Injectable:
-
-    def __init__(self, metadata, config):
-        # TODO: this may not actually need to exist if the ExternalRequiresConfigMap can generate it properly.
-        for k, v in config.items():
-            del config[k]
-            config[metadata.component_name + '_COMPONENT_' + k] = v
-
-        self.config = config
-        self.metadata = metadata
+class Injectable(PClass):
+    """An object that can be injected as configuration into Kubernetes."""
+    resource_type = field(str)  # Mainly useful for debugging
+    app = field(str)  # application name
+    # service name, or None if shared resource:
+    service = field((str, type(None)))
+    resource_name = field(str)  # name of resource
+    # the configuration to put into k8s ConfigMap:
+    config = pmap_field(str, str)
 
     def render(self):
-        from .kubernetes import ExternalRequiresConfigMap
-        # TODO: this code likely needs some revision once the policy of how many ConfigMaps is determined...
-        return ExternalRequiresConfigMap(name=self.metadata.service or self.metadata.app,
-                                         resource_name=self.metadata.component_name,
-                                         data=self.config)
+        name = self.resource_name
+        # TODO: this duplicates naming logic in kubernetes.py:
+        if self.service is not None:
+            name = self.service + "---" + name
+        return ExternalRequiresConfigMap(
+            name=name, resource_name=self.resource_name, data=self.config)
 
 
-class AwsElasticsearchDomain(Injectable):
-
-    def __init__(self, metadata, config):
-        Injectable.__init__(self, metadata, config)
-
-    @staticmethod
-    def create(pib_metadata, tf_data):
-        config = {'HOST': tf_data['attributes']['endpoint'],
-                  'PORT': ""}  # doesn't have one...
-
-        return AwsElasticsearchDomain(pib_metadata, config)
+def _create_aws_elasticsearch_domain(tf_data):
+    return {'HOST': tf_data['attributes']['endpoint'],
+            # AWS docs suggest it's always port 80:
+            # http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-gsg-search.html
+            'PORT': "80"}
 
 
-class AwsDatabaseResource(Injectable):
-
-    def __init__(self, metadata, config):
-        Injectable.__init__(self, metadata, config)
-
-    @staticmethod
-    def create(pib_metadata, tf_data):
-        config = {'HOST': tf_data['attributes']['address'],
-                  'PORT': tf_data['attributes']['port'],
-                  'USERNAME': tf_data['attributes']['username'],
-                  'PASSWORD': tf_data['attributes']['password']}
-
-        return AwsDatabaseResource(pib_metadata, config)
+def _create_aws_database_resource(tf_data):
+    return {'HOST': tf_data['attributes']['address'],
+            'PORT': tf_data['attributes']['port'],
+            'USERNAME': tf_data['attributes']['username'],
+            'PASSWORD': tf_data['attributes']['password']}
 
 
-class ExtractedState:
+class ApplicationState(PClass):
+    """Per-application injectable state."""
+    shared_resources = pset_field(Injectable)
+    # map service name -> set of Injectables
+    service_resources = pmap_field(str, PSet)
 
-    def __init__(self):
-        self.all = []
-        self.app_resources = {}
-        self.svc_resources = {}
 
-    def add_resource(self, resource):
-        self.all.append(resource)
-
-        if resource.metadata.app not in self.app_resources:
-            self.app_resources[resource.metadata.app] = []
-
-        self.app_resources[resource.metadata.app].append(resource)
-
-        # resource.service can be None which means it's shared and therefore doesn't belong to any particular resource.
-        if resource.metadata.service is not None and resource.metadata.service not in self.svc_resources:
-            self.svc_resources[resource.metadata.service] = []
-
-        if resource.metadata.service is not None:
-            self.svc_resources[resource.metadata.service].append(resource)
-
-    def clear(self):
-        self.all.clear()
-        self.app_resources.clear()
-        self.svc_resources.clear()
+class ExtractedState(PClass):
+    """Injectables extracted from terraform state."""
+    # map application name to its state:
+    applications = pmap_field(str, ApplicationState)
 
     def size(self):
-        return len(self.all)
+        # TODO: delete me
+        return sum(len(app.shared_resources) +
+                   sum(map(len, app.service_resources.values()))
+                   for app in self.applications.values())
 
-    def render(self, renderer):
-        renderer.render(self)
 
-
-RESOURCE_FACTORIES = {
-    'aws_db_instance': AwsDatabaseResource.create,
-    'aws_rds_cluster': AwsDatabaseResource.create,
-    'aws_elasticsearch_domain': AwsElasticsearchDomain.create
+_RESOURCE_FACTORIES = {
+    'aws_db_instance': _create_aws_database_resource,
+    'aws_rds_cluster': _create_aws_database_resource,
+    'aws_elasticsearch_domain': _create_aws_elasticsearch_domain,
 }
 
 
 def extract(raw_json):
-    """Terraform stores state in a convenient-ish JSON format. This """
-
+    """Convert terraform JSON state into an ExtractedState object."""
     tfstate = json.loads(raw_json)
-    extracted = ExtractedState()
+    result = {}
 
     for mod in tfstate['modules']:
-        extract_resources_from_module(extracted, mod)
+        for injectable in _extract_resources_from_module(mod):
+            app_state = result.setdefault(injectable.app,
+                                          {"shared_resources": set(),
+                                           "service_resources": {}})
+            if injectable.service is None:
+                app_state["shared_resources"].add(injectable)
+            else:
+                app_state["service_resources"].setdefault(
+                    injectable.service, set()).add(injectable)
 
-    return extracted
+    return ExtractedState.create(freeze({"applications": result}))
 
 
-def extract_resources_from_module(result, mod):
-
-    # module.resources is a dictionary that maps the Terraform templates resource name to data about that resource. We
-    # are not interested in that value. The interesting info lies in the tf_data dictionary.
+def _extract_resources_from_module(mod):
+    """Extract resources from a terraform state module."""
+    # module.resources is a dictionary that maps the Terraform templates
+    # resource name to data about that resource. We are not interested in that
+    # value. The interesting info lies in the tf_data dictionary.
     for tf_name, tf_data in mod.get('resources', {}).items():
 
-        # there's a huge number of Terraform resources we can't do anything intelligent with.
-        if tf_data['type'] not in RESOURCE_FACTORIES:
+        # there's a huge number of Terraform resources we can't do anything
+        # intelligent with.
+        if tf_data['type'] not in _RESOURCE_FACTORIES:
             print("SKIP: no type handler for type {}".format(tf_data['type']))
             continue
 
         # TODO(plombardi): INVESTIGATE
-        # there's a 'primary' and a 'deposed'... I'm not sure what deposed is or if it's relevant to anything. Primary
-        # data is the stuff we're after.
+        # there's a 'primary' and a 'deposed'... I'm not sure what deposed is
+        # or if it's relevant to anything. Primary data is the stuff we're
+        # after.
         primary = tf_data['primary']
 
-        # tainted stuff is going to be destroyed by Terraform so do not do anything with it.
+        # tainted stuff is going to be destroyed by Terraform so do not do
+        # anything with it.
         if primary['tainted']:
             print("SKIP: tainted resource")
             continue
 
         attributes = primary['attributes']
-        tags = extract_tags(attributes)
+        tags = _extract_tags(attributes)
 
-        # The metadata holds app and service name information. We use a JSON object to store that information to avoid
-        # wasting AWS resource tags because each resource can only have a maximum of 10. If a resource does not have
-        # metadata it's not meant to be consumed.
+        # The metadata holds app and service name information. We use a JSON
+        # object to store that information to avoid wasting AWS resource tags
+        # because each resource can only have a maximum of 10. If a resource
+        # does not have metadata it's not meant to be consumed.
         raw_metadata = json.loads(tags.get('pib_metadata', '{}'))
         if not raw_metadata:
             print("SKIP: no metadata")
             continue
 
-        metadata = Metadata(raw_metadata['app'],
-                            raw_metadata.get('service'),
-                            raw_metadata['component_name'])
+        yield Injectable(resource_type=tf_data['type'],
+                         app=raw_metadata.get('app', 'default'),
+                         service=raw_metadata.get('service'),
+                         resource_name=raw_metadata['resource_name'],
+                         config=_RESOURCE_FACTORIES[tf_data['type']](primary))
 
-        injectable = RESOURCE_FACTORIES[tf_data['type']](metadata, primary)
-        result.add_resource(injectable)
 
-
-def extract_tags(attributes):
+def _extract_tags(attributes):
     result = {}
     for k, v in attributes.items():
-        # no idea why they seem to use .# and .% at different types or if means something...
+        # TODO: no idea why they seem to use .# and .% at different types or if
+        # means something...
         if k.startswith('tags.') and k not in {'tags.#', 'tags.%'}:
             result[k.split('.', 1)[-1]] = v
 
