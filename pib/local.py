@@ -24,8 +24,14 @@ def run_result(command, **kwargs):
 class RunLocal(object):
     """Context for running local operations."""
 
-    def __init__(self, logfile):
+    def __init__(self, logfile, echo):
+        """
+        :param logfile: file-like object to write logs to.
+        :param echo: callable to write user output to. Presumed to add
+            linebreaks.
+        """
         self.logfile = logfile
+        self.echo = echo
 
     def _check_call(self, *args, **kwargs):
         """Run a subprocess, make sure it exited with 0."""
@@ -42,7 +48,11 @@ class RunLocal(object):
                 "https://storage.googleapis.com/kubernetes-release/"
                 "release/v1.5.1/bin/{}/amd64/kubectl"
         ]):
+            if path.exists() and not os.access(str(path), os.X_OK):
+                # Apparently failed halfway through previous download
+                os.remove(str(path))
             if not path.exists():
+                self.echo("Downloading {}...".format(path.name))
                 check_call([
                     "curl", "--create-dirs", "--silent", "--output", str(path),
                     url.format(uname)
@@ -58,6 +68,7 @@ class RunLocal(object):
         except CalledProcessError:
             running = False
         if not running:
+            self.echo("Starting minikube...")
             self._check_call([str(MINIKUBE), "start"])
             self._check_call([str(MINIKUBE), "addons", "enable", "ingress"])
             sleep(10)  # make sure it's really up
@@ -72,8 +83,8 @@ class RunLocal(object):
         with NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
             f.write(config)
             f.flush()
-            self._check_call([str(KUBECTL), command, "-f", f.name] +
-                             kubectl_args)
+            self._check_call([str(KUBECTL), "--context=minikube", command,
+                              "-f", f.name] + kubectl_args)
 
     def _kubectl_apply(self, config):
         """Run kubectl apply on the given configs."""
@@ -87,7 +98,8 @@ class RunLocal(object):
     def wipe(self):
         """Delete everything from k8s."""
         for category in ["ingress", "service", "deployment", "pod"]:
-            self._check_call([str(KUBECTL), "delete", category, "--all"])
+            self._check_call([str(KUBECTL), "--context=minikube",
+                              "delete", category, "--all"])
 
     def _rebuild_docker_image(self, docker_image, directory):
         """Rebuild the Docker image for a particular service.
@@ -97,7 +109,6 @@ class RunLocal(object):
 
         :return str: the Docker tag to use.
         """
-        # 1. Rebuild Docker images inside Minikube Docker process:
         tag = run_result(
             ["git", "describe", "--tags", "--dirty", "--always", "--long"],
             cwd=str(directory)) + "-" + str(time())
@@ -118,11 +129,18 @@ class RunLocal(object):
             # If we have local checkout use local code:
             subdir = services_directory / name
             if subdir.exists():
+                self.echo("Service {} found in {}, rebuilding Docker"
+                          " image with latest code...".format(
+                              name, services_directory.absolute()))
                 tag_overrides[name] = self._rebuild_docker_image(service.image,
                                                                  subdir)
             else:
                 # Otherwise, use tag in Envfile.yaml:
                 # By default use the tag in the Envfile.yaml:
+                self.echo("Service {} not found in {}, using tag '{}'"
+                          " from Envfile.yaml.".format(
+                              name, services_directory.absolute(),
+                              service.image.tag))
                 tag_overrides[name] = service.image.tag
         return tag_overrides
 

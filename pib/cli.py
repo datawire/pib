@@ -29,7 +29,7 @@ def create_run_local(logfile_path):
         # Wipe existing logfile, and use line buffering so data gets written
         # out immediately.
         logfile = open(logfile_path, "w", buffering=1)
-    return RunLocal(logfile)
+    return RunLocal(logfile, click.echo)
 
 
 def start(logfile_path):
@@ -58,8 +58,8 @@ def load_envfile(config_path):
 
 def redeploy(run_local, envfile, services_directory):
     """Redeploy currently checked out version of the code."""
-    tag_overrides = run_local.rebuild_docker_images(envfile,
-                                                    services_directory)
+    tag_overrides = run_local.rebuild_docker_images(
+        envfile, services_directory)
     run_local.deploy(envfile, tag_overrides)
 
 
