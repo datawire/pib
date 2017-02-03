@@ -9,6 +9,10 @@ from pyrsistent import PClass, pmap_field, pset_field, field, PSet, freeze
 from .kubernetes import ExternalRequiresConfigMap
 
 
+__all__ = ["S3State", "Injectable", "ApplicationState", "ExtractedState",
+           "extract"]
+
+
 class S3State:
     """Operations pertaining to the specified S3 state storage facilities."""
 
@@ -66,12 +70,12 @@ class Injectable(PClass):
             name=name, resource_name=self.resource_name, data=self.config)
 
 
-def create_aws_elasticsearch_domain(tf_data):
+def _create_aws_elasticsearch_domain(tf_data):
     return {'HOST': tf_data['attributes']['endpoint'],
             'PORT': "80"}  # doesn't have one...
 
 
-def create_aws_database_resource(tf_data):
+def _create_aws_database_resource(tf_data):
     return {'HOST': tf_data['attributes']['address'],
             'PORT': tf_data['attributes']['port'],
             'USERNAME': tf_data['attributes']['username'],
@@ -97,10 +101,10 @@ class ExtractedState(PClass):
                    for app in self.applications.values())
 
 
-RESOURCE_FACTORIES = {
-    'aws_db_instance': create_aws_database_resource,
-    'aws_rds_cluster': create_aws_database_resource,
-    'aws_elasticsearch_domain': create_aws_elasticsearch_domain,
+_RESOURCE_FACTORIES = {
+    'aws_db_instance': _create_aws_database_resource,
+    'aws_rds_cluster': _create_aws_database_resource,
+    'aws_elasticsearch_domain': _create_aws_elasticsearch_domain,
 }
 
 
@@ -110,7 +114,7 @@ def extract(raw_json):
     result = {}
 
     for mod in tfstate['modules']:
-        for injectable in extract_resources_from_module(mod):
+        for injectable in _extract_resources_from_module(mod):
             app_state = result.setdefault(injectable.app,
                                           {"shared_resources": set(),
                                            "service_resources": {}})
@@ -123,7 +127,7 @@ def extract(raw_json):
     return ExtractedState.create(freeze({"applications": result}))
 
 
-def extract_resources_from_module(mod):
+def _extract_resources_from_module(mod):
     """Extract resources from a terraform state module."""
     # module.resources is a dictionary that maps the Terraform templates
     # resource name to data about that resource. We are not interested in that
@@ -132,7 +136,7 @@ def extract_resources_from_module(mod):
 
         # there's a huge number of Terraform resources we can't do anything
         # intelligent with.
-        if tf_data['type'] not in RESOURCE_FACTORIES:
+        if tf_data['type'] not in _RESOURCE_FACTORIES:
             print("SKIP: no type handler for type {}".format(tf_data['type']))
             continue
 
@@ -149,7 +153,7 @@ def extract_resources_from_module(mod):
             continue
 
         attributes = primary['attributes']
-        tags = extract_tags(attributes)
+        tags = _extract_tags(attributes)
 
         # The metadata holds app and service name information. We use a JSON
         # object to store that information to avoid wasting AWS resource tags
@@ -164,10 +168,10 @@ def extract_resources_from_module(mod):
                          app=raw_metadata.get('app', 'default'),
                          service=raw_metadata.get('service'),
                          resource_name=raw_metadata['resource_name'],
-                         config=RESOURCE_FACTORIES[tf_data['type']](primary))
+                         config=_RESOURCE_FACTORIES[tf_data['type']](primary))
 
 
-def extract_tags(attributes):
+def _extract_tags(attributes):
     result = {}
     for k, v in attributes.items():
         # TODO: no idea why they seem to use .# and .% at different types or if
