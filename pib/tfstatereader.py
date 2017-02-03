@@ -64,6 +64,7 @@ class Injectable(PClass):
 
     def render(self):
         name = self.resource_name
+        # TODO: this duplicates naming logic in kubernetes.py:
         if self.service is not None:
             name = self.service + "---" + name
         return ExternalRequiresConfigMap(
