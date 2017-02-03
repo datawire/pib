@@ -42,6 +42,9 @@ class RunLocal(object):
                 "https://storage.googleapis.com/kubernetes-release/"
                 "release/v1.5.1/bin/{}/amd64/kubectl"
         ]):
+            if path.exists() and not os.access(str(path), os.X_OK):
+                # Apparently failed halfway through previous download
+                os.remove(str(path))
             if not path.exists():
                 check_call([
                     "curl", "--create-dirs", "--silent", "--output", str(path),
