@@ -1,19 +1,12 @@
 """Convert terraform state into Kuberentes configuration."""
 
-import boto3
-import botocore
 import json
 
+import boto3
+import botocore
+from pyrsistent import PClass, pmap_field, pset_field, field, PSet, freeze
+
 from .kubernetes import ExternalRequiresConfigMap
-
-
-class Metadata:
-    """Metadata for a particular resource, e.g. AWS RDS instance."""
-
-    def __init__(self, app, service, component_name):
-        self.app = app
-        self.service = service
-        self.component_name = component_name
 
 
 class S3State:
@@ -55,14 +48,15 @@ class S3State:
         return res
 
 
-class Injectable:
+class Injectable(PClass):
     """An object that can be injected as configuration into Kubernetes."""
-    def __init__(self, resource_type, app, service, resource_name, config):
-        self.resource_type = resource_type  # Mainly useful for debugging
-        self.app = app  # application name
-        self.service = service  # service name, or None if shared resource
-        self.resource_name = resource_name  # name of resource
-        self.config = config  # the configuration to put into k8s ConfigMap
+    resource_type = field(str)  # Mainly useful for debugging
+    app = field(str)  # application name
+    # service name, or None if shared resource:
+    service = field((str, type(None)))
+    resource_name = field(str)  # name of resource
+    # the configuration to put into k8s ConfigMap:
+    config = pmap_field(str, str)
 
     def render(self):
         name = self.resource_name
@@ -84,33 +78,23 @@ def create_aws_database_resource(tf_data):
             'PASSWORD': tf_data['attributes']['password']}
 
 
-class ExtractedState:
+class ApplicationState(PClass):
+    """Per-application injectable state."""
+    shared_resources = pset_field(Injectable)
+    # map service name -> set of Injectables
+    service_resources = pmap_field(str, PSet)
+
+
+class ExtractedState(PClass):
     """Injectables extracted from terraform state."""
-    def __init__(self):
-        self.all = []
-        self.app_resources = {}  # map app name to Injectable
-        self.svc_resources = {}  # map service name to Injectable
-
-    def add_resource(self, resource):
-        self.all.append(resource)
-        self.app_resources.setdefault(resource.app, []).append(resource)
-
-        # resource.service can be None which means it's shared and therefore
-        # doesn't belong to any particular resource.
-        if resource.service is not None:
-            self.svc_resources.setdefault(resource.service, []).append(
-                resource)
-
-    def clear(self):
-        self.all.clear()
-        self.app_resources.clear()
-        self.svc_resources.clear()
+    # map application name to its state:
+    applications = pmap_field(str, ApplicationState)
 
     def size(self):
-        return len(self.all)
-
-    def render(self, renderer):
-        renderer.render(self)
+        # TODO: delete me
+        return sum(len(app.shared_resources) +
+                   sum(map(len, app.service_resources.values()))
+                   for app in self.applications.values())
 
 
 RESOURCE_FACTORIES = {
@@ -123,15 +107,23 @@ RESOURCE_FACTORIES = {
 def extract(raw_json):
     """Convert terraform JSON state into an ExtractedState object."""
     tfstate = json.loads(raw_json)
-    extracted = ExtractedState()
+    result = {}
 
     for mod in tfstate['modules']:
-        extract_resources_from_module(extracted, mod)
+        for injectable in extract_resources_from_module(mod):
+            app_state = result.setdefault(injectable.app,
+                                          {"shared_resources": set(),
+                                           "service_resources": {}})
+            if injectable.service is None:
+                app_state["shared_resources"].add(injectable)
+            else:
+                app_state["service_resources"].setdefault(
+                    injectable.service, set()).add(injectable)
 
-    return extracted
+    return ExtractedState.create(freeze({"applications": result}))
 
 
-def extract_resources_from_module(result, mod):
+def extract_resources_from_module(mod):
     """Extract resources from a terraform state module."""
     # module.resources is a dictionary that maps the Terraform templates
     # resource name to data about that resource. We are not interested in that
@@ -168,12 +160,11 @@ def extract_resources_from_module(result, mod):
             print("SKIP: no metadata")
             continue
 
-        result.add_resource(
-            Injectable(tf_data['type'],
-                       raw_metadata.get('app', 'default'),
-                       raw_metadata.get('service'),
-                       raw_metadata['component_name'],
-                       RESOURCE_FACTORIES[tf_data['type']](primary)))
+        yield Injectable(resource_type=tf_data['type'],
+                         app=raw_metadata.get('app', 'default'),
+                         service=raw_metadata.get('service'),
+                         resource_name=raw_metadata['resource_name'],
+                         config=RESOURCE_FACTORIES[tf_data['type']](primary))
 
 
 def extract_tags(attributes):

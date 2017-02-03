@@ -65,7 +65,7 @@ INSTANCE = r"""
                         "storage_encrypted": "false",
                         "storage_type": "gp2",
                         "tags.%": "1",
-                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"component_name\":\"postgres96\" }",
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"resource_name\":\"postgres96\" }",
                         "username": "REDACTED_USERNAME",
                         "vpc_security_group_ids.#": "1",
                         "vpc_security_group_ids.548992056": "sg-d43d90a9"
@@ -133,7 +133,7 @@ INSTANCE = r"""
                         "snapshot_options.#": "1",
                         "snapshot_options.0.automated_snapshot_start_hour": "0",
                         "tags.%": "1",
-                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"service\":\"trace\", \"component_name\":\"es\" }"
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"service\":\"trace\", \"resource_name\":\"es\" }"
                     },
                     "meta": {},
                     "tainted": false
@@ -274,7 +274,7 @@ def test_unregistered_type_is_skipped():
                         "storage_encrypted": "false",
                         "storage_type": "gp2",
                         "tags.%": "1",
-                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"component_name\":\"postgres96\" }",
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"resource_name\":\"postgres96\" }",
                         "username": "REDACTED_USERNAME",
                         "vpc_security_group_ids.#": "1",
                         "vpc_security_group_ids.548992056": "sg-d43d90a9"
@@ -426,7 +426,7 @@ def test_tainted_is_skipped():
                         "storage_encrypted": "false",
                         "storage_type": "gp2",
                         "tags.%": "1",
-                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"component_name\":\"postgres96\" }",
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"resource_name\":\"postgres96\" }",
                         "username": "REDACTED_USERNAME",
                         "vpc_security_group_ids.#": "1",
                         "vpc_security_group_ids.548992056": "sg-d43d90a9"
@@ -503,7 +503,7 @@ def test_render():
                         "storage_encrypted": "false",
                         "storage_type": "gp2",
                         "tags.%": "1",
-                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"component_name\":\"postgres96\" }",
+                        "tags.pib_metadata": "{ \"app\":\"datawire\", \"resource_name\":\"postgres96\" }",
                         "username": "REDACTED_USERNAME",
                         "vpc_security_group_ids.#": "1",
                         "vpc_security_group_ids.548992056": "sg-d43d90a9"
