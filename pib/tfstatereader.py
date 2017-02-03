@@ -12,14 +12,20 @@ class Metadata:
 class Injectable:
 
     def __init__(self, metadata, config):
+        # TODO: this may not actually need to exist if the ExternalRequiresConfigMap can generate it properly.
         for k, v in config.items():
             del config[k]
-            config[metadata.component_name + '_COMPONENT' + k] = v
+            config[metadata.component_name + '_COMPONENT_' + k] = v
 
+        self.config = config
         self.metadata = metadata
 
-    def config(self):
-        return self.config
+    def render(self):
+        from .kubernetes import ExternalRequiresConfigMap
+        # TODO: this code likely needs some revision once the policy of how many ConfigMaps is determined...
+        return ExternalRequiresConfigMap(name=self.metadata.service or self.metadata.app,
+                                         resource_name=self.metadata.component_name,
+                                         data=self.config)
 
 
 class AwsElasticsearchDomain(Injectable):
