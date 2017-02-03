@@ -1,3 +1,5 @@
+import boto3
+import botocore
 import json
 
 
@@ -7,6 +9,45 @@ class Metadata:
         self.app = app
         self.service = service
         self.component_name = component_name
+
+
+class S3State:
+    """Operations pertaining to the specified S3 state storage facilities."""
+
+    def __init__(self, bucket, key):
+        self.bucket = str(bucket)
+        self.key = key
+
+    def exists(self):
+        return self.__bucket_exists() and self.__key_exists()
+
+    def fetch(self):
+        s3 = boto3.client('s3')
+        obj = s3.get_object(Bucket=self.bucket, Key=self.key)
+        content = obj['Body'].read().decode('utf-8')
+        return json.loads(content)
+
+    def __bucket_exists(self):
+        res = True
+        s3 = boto3.client('s3')
+
+        try:
+            s3.head_bucket(Bucket=self.bucket)
+        except botocore.exceptions.ClientError as e:
+            res = False
+
+        return res
+
+    def __key_exists(self):
+        res = True
+        s3 = boto3.client('s3')
+
+        try:
+            s3.head_object(Bucket=self.bucket, Key=self.key)
+        except botocore.exceptions.ClientError as e:
+            res = False
+
+        return res
 
 
 class Injectable:
