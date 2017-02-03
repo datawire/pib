@@ -83,8 +83,8 @@ class RunLocal(object):
         with NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
             f.write(config)
             f.flush()
-            self._check_call([str(KUBECTL), command, "-f", f.name] +
-                             kubectl_args)
+            self._check_call([str(KUBECTL), "--context=minikube", command,
+                              "-f", f.name] + kubectl_args)
 
     def _kubectl_apply(self, config):
         """Run kubectl apply on the given configs."""
@@ -98,7 +98,8 @@ class RunLocal(object):
     def wipe(self):
         """Delete everything from k8s."""
         for category in ["ingress", "service", "deployment", "pod"]:
-            self._check_call([str(KUBECTL), "delete", category, "--all"])
+            self._check_call([str(KUBECTL), "--context=minikube",
+                              "delete", category, "--all"])
 
     def _rebuild_docker_image(self, docker_image, directory):
         """Rebuild the Docker image for a particular service.
