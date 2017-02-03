@@ -24,8 +24,14 @@ def run_result(command, **kwargs):
 class RunLocal(object):
     """Context for running local operations."""
 
-    def __init__(self, logfile):
+    def __init__(self, logfile, echo):
+        """
+        :param logfile: file-like object to write logs to.
+        :param echo: callable to write user output to. Presumed to add
+            linebreaks.
+        """
         self.logfile = logfile
+        self.echo = echo
 
     def _check_call(self, *args, **kwargs):
         """Run a subprocess, make sure it exited with 0."""
@@ -43,6 +49,7 @@ class RunLocal(object):
                 "release/v1.5.1/bin/{}/amd64/kubectl"
         ]):
             if not path.exists():
+                self.echo("Downloading {}...".format(path.name))
                 check_call([
                     "curl", "--create-dirs", "--silent", "--output", str(path),
                     url.format(uname)
@@ -58,6 +65,7 @@ class RunLocal(object):
         except CalledProcessError:
             running = False
         if not running:
+            self.echo("Starting minikube...")
             self._check_call([str(MINIKUBE), "start"])
             self._check_call([str(MINIKUBE), "addons", "enable", "ingress"])
             sleep(10)  # make sure it's really up
@@ -106,8 +114,7 @@ class RunLocal(object):
         ])
         return tag
 
-    def rebuild_docker_images(self, envfile, services_directory,
-                              echo=lambda s: None):
+    def rebuild_docker_images(self, envfile, services_directory):
         """Rebuild the Docker images for all local services.
 
         :return dict: map service name to tag to use.
@@ -118,16 +125,18 @@ class RunLocal(object):
             # If we have local checkout use local code:
             subdir = services_directory / name
             if subdir.exists():
-                echo("Service {} found in {}, rebuilding Docker image...".format(
-                    name, services_directory.absolute()))
+                self.echo("Service {} found in {}, rebuilding Docker"
+                          " image with latest code...".format(
+                              name, services_directory.absolute()))
                 tag_overrides[name] = self._rebuild_docker_image(service.image,
                                                                  subdir)
             else:
                 # Otherwise, use tag in Envfile.yaml:
                 # By default use the tag in the Envfile.yaml:
-                echo("Service {} not found in {}, using tag '{}'"
-                     " from Envfile.yaml.".format(
-                         name, services_directory.absolute(), service.image.tag))
+                self.echo("Service {} not found in {}, using tag '{}'"
+                          " from Envfile.yaml.".format(
+                              name, services_directory.absolute(),
+                              service.image.tag))
                 tag_overrides[name] = service.image.tag
         return tag_overrides
 
