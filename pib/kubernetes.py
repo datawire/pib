@@ -80,7 +80,7 @@ class Deployment(PClass):
 
     def render(self, options):
         docker_image = self.docker_image
-        tag = options.tag_overrides.get(self.name)
+        tag = options.tags.get(self.name)
         if tag is not None:
             image_parts = self.docker_image.split(":")
             image_parts[-1] = tag
