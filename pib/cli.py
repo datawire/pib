@@ -153,10 +153,12 @@ def handle_unexpected_errors(f):
             print_exc(file=errorf)
             error = errorf.getvalue()
             click.echo(
-                "Looks like there's a bug in our code. Sorry about that!"
-                " Here's the traceback:\n" + error)
+                "Looks like there's a bug in our code. Sorry about that!\n\n"
+                "Here's the traceback:\n\n" + error + "\n" +
+                "You may be able to find more details in the pib.log file.\n")
             if click.confirm(
-                    "Would you like to file an issue in our issue tracker?",
+                    "Would you like to file an issue in our issue tracker?"
+                    " We'd really appreciate the help improving our product.",
                     default=True, abort=True):
                 url = "https://github.com/datawire/pib/issues/new?body="
                 body = quote_plus(BUG_REPORT_TEMPLATE.format(
@@ -193,7 +195,7 @@ def cli_source_deploy(logfile, directory, envfile_path):
 def cli_deploy(logfile, envfile_path):
     envfile = load_envfile(Path(envfile_path))
     run_local = start(logfile)
-    deploy(run_local, envfile)
+    run_local.deploy(envfile)
     print_service_url(run_local, envfile)
 
 
@@ -208,7 +210,7 @@ def cli_watch(logfile, directory, envfile_path):
     envfile = load_envfile(Path(envfile_path))
     directory = Path(directory)
     run_local = start(logfile)
-    redeploy(run_local, envfile, directory)
+    source_deploy(run_local, envfile, directory)
     print_service_url(run_local, envfile)
     watch(run_local, envfile, directory)
 
