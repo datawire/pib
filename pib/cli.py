@@ -191,11 +191,27 @@ def cli_source_deploy(logfile, directory, envfile):
     print_service_url(run_local, envfile)
 
 
-@cli.command("deploy", help="Deploy tagged images.")
+@cli.group(name="deploy", help="Deploy tagged images locally or remotely.")
+def cli_deploy():
+    pass
+
+
+@cli_deploy.command("local", help="Deploy tagged images locally.")
 @opt_logfile
 @opt_envfile
 @handle_unexpected_errors
-def cli_deploy(logfile, envfile):
+def cli_deploy_local(logfile, envfile):
+    envfile = load_envfile(Path(envfile))
+    run_local = start(logfile)
+    run_local.deploy(envfile)
+    print_service_url(run_local, envfile)
+
+
+@cli_deploy.command("remote", help="Deploy tagged images remotely.")
+@opt_logfile
+@opt_envfile
+@handle_unexpected_errors
+def cli_deploy_remote(logfile, envfile):
     envfile = load_envfile(Path(envfile))
     run_local = start(logfile)
     run_local.deploy(envfile)
