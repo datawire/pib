@@ -97,7 +97,7 @@ When you start thinking about production use you could configure the production 
 Now you can deploy your whole system in development mode using your local source code:
 
 ```console
-you@yourlaptop:~/pib$ pib watch Envfile.yaml &
+you@yourlaptop:~/pib$ pib watch
 ```
 
 This will:

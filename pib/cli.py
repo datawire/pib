@@ -102,10 +102,13 @@ opt_directory = click.option(
         readable=True, file_okay=False, exists=True),
     default=".",
     help=("Directory where services can be found. Default: ."))
-param_envfile = click.argument(
-    "ENVFILE_PATH",
+opt_envfile = click.option(
+    "--envfile",
+    nargs=1,
     type=click.Path(
-        readable=True, dir_okay=False, exists=True))
+        readable=True, dir_okay=False, exists=True),
+    default="./Envfile.yaml",
+    help=("Path to Envfile.yaml. Default: ./Envfile.yaml"))
 
 
 BUG_REPORT_TEMPLATE = """\
@@ -178,10 +181,10 @@ def cli():
 @cli.command("source-deploy", help="Deploy locally from source code.")
 @opt_logfile
 @opt_directory
-@param_envfile
+@opt_envfile
 @handle_unexpected_errors
-def cli_source_deploy(logfile, directory, envfile_path):
-    envfile = load_envfile(Path(envfile_path))
+def cli_source_deploy(logfile, directory, envfile):
+    envfile = load_envfile(Path(envfile))
     directory = Path(directory)
     run_local = start(logfile)
     source_deploy(run_local, envfile, directory)
@@ -190,10 +193,10 @@ def cli_source_deploy(logfile, directory, envfile_path):
 
 @cli.command("deploy", help="Deploy tagged images.")
 @opt_logfile
-@param_envfile
+@opt_envfile
 @handle_unexpected_errors
-def cli_deploy(logfile, envfile_path):
-    envfile = load_envfile(Path(envfile_path))
+def cli_deploy(logfile, envfile):
+    envfile = load_envfile(Path(envfile))
     run_local = start(logfile)
     run_local.deploy(envfile)
     print_service_url(run_local, envfile)
@@ -204,10 +207,10 @@ def cli_deploy(logfile, envfile_path):
     help="Continuously deploy locally from source code.")
 @opt_logfile
 @opt_directory
-@param_envfile
+@opt_envfile
 @handle_unexpected_errors
-def cli_watch(logfile, directory, envfile_path):
-    envfile = load_envfile(Path(envfile_path))
+def cli_watch(logfile, directory, envfile):
+    envfile = load_envfile(Path(envfile))
     directory = Path(directory)
     run_local = start(logfile)
     source_deploy(run_local, envfile, directory)
