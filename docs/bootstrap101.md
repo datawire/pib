@@ -39,7 +39,27 @@ module "environment" {
 13. Create a `.travis.yml` with the following configuration.
 
 ```yaml
-TBD
+dist: trusty
+language: generic
+sudo: false
+
+cache:
+  pip: true
+  directories:
+  - "${HOME}/bin"
+
+before_install:
+- export PATH=$PATH:$HOME/bin
+- bin/setup.sh
+
+before_script:
+- bin/init.sh
+
+script:
+- bin/run.sh
+
+after_success:
+- bin/after_success.sh
 ```
 
 14. Acquire AWS IAM credentials that have superuser capabilities. These permissions will be needed for bootstrapping the environment and then deployment Kubernetes.
