@@ -5,6 +5,7 @@ from functools import wraps
 from pathlib import Path
 from time import sleep
 from traceback import print_exc
+from subprocess import check_output
 from sys import stdout, exit, version as python_version
 from urllib.parse import quote_plus
 import webbrowser
@@ -13,7 +14,7 @@ import os
 import click
 from yaml import safe_load
 
-from .local import RunLocal, run_result
+from .local import RunLocal
 from .schema import ValidationError
 from .envfile import load_envfile as _load_envfile
 from . import __version__
@@ -166,7 +167,7 @@ def handle_unexpected_errors(f):
                 url = "https://github.com/datawire/pib/issues/new?body="
                 body = quote_plus(BUG_REPORT_TEMPLATE.format(
                     os.getcwd(), __version__, python_version,
-                    run_result(["uname", "-a"]), error))
+                    str(check_output(["uname", "-a"]), "utf-8"), error))
                 webbrowser.open_new(url + body)
 
     return call_f
