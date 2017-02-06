@@ -4,12 +4,10 @@ import os
 from os.path import expanduser
 from pathlib import Path
 from subprocess import CalledProcessError
-from tempfile import NamedTemporaryFile
 from time import sleep, time
 
-from yaml import safe_dump
-
 from .kubernetes import envfile_to_k8s, RenderingOptions
+from .kubectl import Kubectl
 from .subprocesses import Runner
 
 PIB_DIR = Path(expanduser("~")) / ".pib"
@@ -26,12 +24,13 @@ class RunLocal(object):
         :param echo: callable to write user output to. Presumed to add
             linebreaks.
         """
-        self.runner = Runner(logfile)
-        self.echo = echo
+        self._runner = Runner(logfile)
+        self._kubectl = Kubectl(self._runner, KUBECTL, "minikube")
+        self._echo = echo
 
     def ensure_requirements(self):
         """Make sure kubectl and minikube are available."""
-        uname = self.runner.get_output("uname").lower()
+        uname = self._runner.get_output("uname").lower()
         for path, url in zip([MINIKUBE, KUBECTL], [
                 "https://storage.googleapis.com/minikube/releases/"
                 "v0.15.0/minikube-{}-amd64",
@@ -42,8 +41,8 @@ class RunLocal(object):
                 # Apparently failed halfway through previous download
                 os.remove(str(path))
             if not path.exists():
-                self.echo("Downloading {}...".format(path.name))
-                self.runner.check_call([
+                self._echo("Downloading {}...".format(path.name))
+                self._runner.check_call([
                     "curl", "--create-dirs", "--silent", "--output", str(path),
                     url.format(uname)
                 ])
@@ -53,46 +52,21 @@ class RunLocal(object):
         """Start minikube."""
         running = True
         try:
-            result = self.runner.get_output([str(MINIKUBE), "status"])
+            result = self._runner.get_output([str(MINIKUBE), "status"])
             running = "Running" in result
         except CalledProcessError:
             running = False
         if not running:
-            self.echo("Starting minikube...")
-            self.runner.check_call([str(MINIKUBE), "start"])
-            self.runner.check_call(
+            self._echo("Starting minikube...")
+            self._runner.check_call([str(MINIKUBE), "start"])
+            self._runner.check_call(
                 [str(MINIKUBE), "addons", "enable", "ingress"])
             sleep(10)  # make sure it's really up
-
-    def _kubectl(self, command, config, kubectl_args=[]):
-        """Run kubectl.
-
-        :param command: The kubectl command.
-        :param params: Parameters with which to render the configs.
-        :param configs: YAML-encoded configuration.
-        """
-        with NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
-            f.write(config)
-            f.flush()
-            self.runner.check_call([
-                str(KUBECTL), "--context=minikube", command, "-f", f.name
-            ] + kubectl_args)
-
-    def _kubectl_apply(self, config):
-        """Run kubectl apply on the given configs."""
-        self._kubectl("apply", config)
-
-    def _kubectl_delete(self, config):
-        """Run kubectl delete on the given configs."""
-        self._kubectl(
-            "delete", config, kubectl_args=["--ignore-not-found=true"])
 
     def wipe(self):
         """Delete everything from k8s."""
         for category in ["ingress", "service", "deployment", "pod"]:
-            self.runner.check_call([
-                str(KUBECTL), "--context=minikube", "delete", category, "--all"
-            ])
+            self._kubectl.run(["delete", category, "--all"])
 
     def _rebuild_docker_image(self, docker_image, directory):
         """Rebuild the Docker image for a particular service.
@@ -102,10 +76,10 @@ class RunLocal(object):
 
         :return str: the Docker tag to use.
         """
-        tag = self.runner.get_output(
+        tag = self._runner.get_output(
             ["git", "describe", "--tags", "--dirty", "--always", "--long"],
             cwd=str(directory)) + "-" + str(time())
-        self.runner.check_call([
+        self._runner.check_call([
             "docker", "build", str(directory), "-t",
             "{}:{}".format(docker_image.repository, tag)
         ])
@@ -122,15 +96,15 @@ class RunLocal(object):
             # If we have local checkout use local code:
             subdir = services_directory / name
             if subdir.exists():
-                self.echo("Service {} found in {}, rebuilding Docker"
-                          " image with latest code...".format(
-                              name, services_directory.absolute()))
+                self._echo("Service {} found in {}, rebuilding Docker"
+                           " image with latest code...".format(
+                               name, services_directory.absolute()))
                 tag_overrides[name] = self._rebuild_docker_image(service.image,
                                                                  subdir)
             else:
                 # Otherwise, use tag in Envfile.yaml:
                 # By default use the tag in the Envfile.yaml:
-                self.echo(
+                self._echo(
                     "Service {} not found in {}, using tag '{}'"
                     " from Envfile.yaml.".format(name,
                                                  services_directory.absolute(),
@@ -142,21 +116,21 @@ class RunLocal(object):
         # TODO: missing ability to remove previous iteration of k8s objects!
         options = RenderingOptions(tag_overrides=tag_overrides)
         for k8s_config in envfile_to_k8s(envfile):
-            self._kubectl_apply(safe_dump(k8s_config.render(options)))
+            self._kubectl.apply_config(k8s_config.render(options))
 
     def get_application_urls(self, envfile):
         """
         :return: Tuple of service URLs as {name: url} and the main URL.
         """
         return {
-            service_name: self.runner.get_output(
+            service_name: self._runner.get_output(
                 [str(MINIKUBE), "service", "--url", service_name])
             for service_name in envfile.application.services
-        }, "http://{}/".format(self.runner.get_output([str(MINIKUBE), "ip"]))
+        }, "http://{}/".format(self._runner.get_output([str(MINIKUBE), "ip"]))
 
     def set_minikube_docker_env(self):
         """Use minikube's Docker."""
-        shell_script = self.runner.get_output(
+        shell_script = self._runner.get_output(
             [str(MINIKUBE), "docker-env", "--shell", "bash"])
         for line in shell_script.splitlines():
             line = line.strip()

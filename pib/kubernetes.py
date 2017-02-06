@@ -1,4 +1,4 @@
-"""Kubernetes integration for Pib."""
+"""Kubernetes configuration integration for Pib."""
 
 from pyrsistent import PClass, field, pset_field, pset, pmap_field, thaw
 
