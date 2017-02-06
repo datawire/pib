@@ -24,7 +24,7 @@ The process to setup an environment involves laying down a basic AWS networking 
 
 9. Create a new Terraform template for the environment: `touch main.tf`
 
-10. Edit the `main.tf` file and add the following information:
+10. Edit the `main.tf` file and add the following information and save afterward:
 
 ```hcl
 module "environment" {
@@ -32,3 +32,33 @@ module "environment" {
   name   = "dev"
 }
 ```
+11. Setup a new Travis-CI account.
+
+12. Configure Travis-CI to track the repository on GitHub.
+
+13. Create a `.travis.yml` with the following configuration.
+
+```yaml
+TBD
+```
+
+14. Acquire AWS IAM credentials that have superuser capabilities. These permissions will be needed for bootstrapping the environment and then deployment Kubernetes.
+
+**NEED FLESHING OUT BEYOND THIS POINT**
+
+15. Configure Travis with AWS access and secret key
+
+16. Push environment to Travis
+
+17. Generate Terraform configuration for a Kubernetes cluster using Kops
+
+18. Modify the `main.tf` file with the Kubernetes cluster module.
+
+19. Commit the changes to Git and lets Travis run.
+
+
+
+
+
+
+
