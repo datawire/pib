@@ -231,6 +231,7 @@ This is the super painless way to get started hacking in a virtualenv configured
 make venv
 source venv/bin/activate
 pip install -e .
+pip install -r requirements.txt
 ```
 
 ### Running Tests
