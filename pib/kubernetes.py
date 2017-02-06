@@ -5,7 +5,7 @@ from pyrsistent import PClass, field, pset_field, pset, pmap_field, thaw
 
 class RenderingOptions(PClass):
     """Define how objects should be rendered."""
-    tags = pmap_field(str, str)  # map service name to Docker image tag
+    tag_overrides = pmap_field(str, str)  # map service name to Docker image tag
     # TODO: eventually ClusterIP vs NodePort can go here
 
 
@@ -80,7 +80,7 @@ class Deployment(PClass):
 
     def render(self, options):
         docker_image = self.docker_image
-        tag = options.tags.get(self.name)
+        tag = options.tag_overrides.get(self.name)
         if tag is not None:
             image_parts = self.docker_image.split(":")
             image_parts[-1] = tag
