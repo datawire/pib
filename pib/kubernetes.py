@@ -5,8 +5,7 @@ from pyrsistent import PClass, field, pset_field, pset, pmap_field, thaw
 
 class RenderingOptions(PClass):
     """Define how objects should be rendered."""
-    tag_overrides = pmap_field(str,
-                               str)  # map service name to Docker image tag
+    tags = pmap_field(str, str)  # map service name to Docker image tag
     # TODO: eventually ClusterIP vs NodePort can go here
 
 
@@ -67,10 +66,8 @@ class InternalRequiresConfigMap(PClass):
         })
 
     def render(self, options):
-        return _render_configmap(
-            self.backend_service.deployment.name,
-            thaw(self.get_full_data())
-        )
+        return _render_configmap(self.backend_service.deployment.name,
+                                 thaw(self.get_full_data()))
 
 
 class Deployment(PClass):
@@ -216,7 +213,8 @@ def envfile_to_k8s(envfile):
             port=resource.config["port"])
         k8s_service = InternalService(deployment=deployment)
         addrconfigmap = InternalRequiresConfigMap(
-            backend_service=k8s_service, resource_name=requirement.name,
+            backend_service=k8s_service,
+            resource_name=requirement.name,
             data=resource.config.remove("port"))
         return deployment, k8s_service, addrconfigmap
 

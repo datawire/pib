@@ -60,8 +60,8 @@ def load_envfile(config_path):
         exit(1)
 
 
-def redeploy(run_local, envfile, services_directory):
-    """Redeploy currently checked out version of the code."""
+def source_deploy(run_local, envfile, services_directory):
+    """(Re)deploy currently checked out version of the code."""
     tag_overrides = run_local.rebuild_docker_images(
         envfile, services_directory)
     run_local.deploy(envfile, tag_overrides)
@@ -84,7 +84,7 @@ def watch(run_local, envfile, services_directory):
         # Kubernetes apply -f takes 20 seconds or so. If we were to redeploy
         # more often than that we'd get an infinite queue.
         sleep(20)
-        redeploy(run_local, envfile, services_directory)
+        source_deploy(run_local, envfile, services_directory)
 
 
 opt_logfile = click.option(
@@ -170,25 +170,36 @@ def handle_unexpected_errors(f):
 @click.group()
 @click.version_option(version=__version__)
 def cli():
-    """pib: run a Pibstack.yaml file locally."""
+    """pib: deploy full applications locally and remotely."""
 
 
-@cli.command("deploy", help="Deploy current Pibstack.yaml.")
+@cli.command("source-deploy", help="Deploy locally from source code.")
 @opt_logfile
 @opt_directory
 @param_envfile
 @handle_unexpected_errors
-def cli_deploy(logfile, directory, envfile_path):
+def cli_source_deploy(logfile, directory, envfile_path):
     envfile = load_envfile(Path(envfile_path))
     directory = Path(directory)
     run_local = start(logfile)
-    redeploy(run_local, envfile, directory)
+    source_deploy(run_local, envfile, directory)
+    print_service_url(run_local, envfile)
+
+
+@cli.command("deploy", help="Deploy tagged images.")
+@opt_logfile
+@param_envfile
+@handle_unexpected_errors
+def cli_deploy(logfile, envfile_path):
+    envfile = load_envfile(Path(envfile_path))
+    run_local = start(logfile)
+    deploy(run_local, envfile)
     print_service_url(run_local, envfile)
 
 
 @cli.command(
     "watch",
-    help="Continuously deploy application specified " + "by Envfile.yaml.")
+    help="Continuously deploy locally from source code.")
 @opt_logfile
 @opt_directory
 @param_envfile

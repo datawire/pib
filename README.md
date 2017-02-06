@@ -94,7 +94,7 @@ Notice that the configuration isn't just saying "I need this Docker image as a d
 In addition to specifying an image it also tells you that it's using PostgreSQL (`template: postgresql-v96`).
 When you start thinking about production use you could configure the production setup to use AWS RDS instead of a Docker image.
 
-Now you can deploy your whole system in development mode:
+Now you can deploy your whole system in development mode using your local source code:
 
 ```console
 you@yourlaptop:~/pib$ pib watch Envfile.yaml &

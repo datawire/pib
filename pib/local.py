@@ -141,13 +141,15 @@ class RunLocal(object):
                           " from Envfile.yaml.".format(
                               name, services_directory.absolute(),
                               service.image.tag))
-                tag_overrides[name] = service.image.tag
         return tag_overrides
 
-    def deploy(self, envfile, tag_overrides):
+    def deploy(self, envfile, tag_overrides={}):
         """Deploy current configuration to the minikube server."""
+        tags = {service.name: service.image.tag for service in
+                envfile.application.services.values()}
+        tags.update(tag_overrides)
         # TODO: missing ability to remove previous iteration of k8s objects!
-        options = RenderingOptions(tag_overrides=tag_overrides)
+        options = RenderingOptions(tags=tags)
         for k8s_config in envfile_to_k8s(envfile):
             self._kubectl_apply(safe_dump(k8s_config.render(options)))
 
