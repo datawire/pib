@@ -9,9 +9,9 @@ from pyrsistent import PClass, pmap_field, pset_field, field, PSet, freeze
 from .kubernetes import (ExternalRequiresConfigMap, IBuildKubernetesConfigs,
                          resource_configmap_k8s_name)
 
-
-__all__ = ["S3State", "Injectable", "ApplicationState", "ExtractedState",
-           "extract"]
+__all__ = [
+    "S3State", "Injectable", "ApplicationState", "ExtractedState", "extract"
+]
 
 
 class S3State:
@@ -70,17 +70,21 @@ class Injectable(PClass):
 
 
 def _create_aws_elasticsearch_domain(tf_data):
-    return {'HOST': tf_data['attributes']['endpoint'],
-            # AWS docs suggest it's always port 80:
-            # http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-gsg-search.html
-            'PORT': "80"}
+    return {
+        'HOST': tf_data['attributes']['endpoint'],
+        # AWS docs suggest it's always port 80:
+        # http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-gsg-search.html
+        'PORT': "80"
+    }
 
 
 def _create_aws_database_resource(tf_data):
-    return {'HOST': tf_data['attributes']['address'],
-            'PORT': tf_data['attributes']['port'],
-            'USERNAME': tf_data['attributes']['username'],
-            'PASSWORD': tf_data['attributes']['password']}
+    return {
+        'HOST': tf_data['attributes']['address'],
+        'PORT': tf_data['attributes']['port'],
+        'USERNAME': tf_data['attributes']['username'],
+        'PASSWORD': tf_data['attributes']['password']
+    }
 
 
 class ApplicationState(PClass, IBuildKubernetesConfigs):
@@ -90,8 +94,9 @@ class ApplicationState(PClass, IBuildKubernetesConfigs):
     service_resources = pmap_field(str, PSet)
 
     def get_all(self):
-        return set(i.render() for i in sum(
-            self.service_resources.values(), self.shared_resources))
+        return set(i.render()
+                   for i in sum(self.service_resources.values(),
+                                self.shared_resources))
 
     def configmaps_for_service(self, service_name):
         return set(i.render() for i in self.service_resources[service_name])
@@ -104,9 +109,10 @@ class ExtractedState(PClass):
 
     def size(self):
         # TODO: delete me
-        return sum(len(app.shared_resources) +
-                   sum(map(len, app.service_resources.values()))
-                   for app in self.applications.values())
+        return sum(
+            len(app.shared_resources) +
+            sum(map(len, app.service_resources.values()))
+            for app in self.applications.values())
 
 
 _RESOURCE_FACTORIES = {
@@ -123,9 +129,10 @@ def extract(raw_json):
 
     for mod in tfstate['modules']:
         for injectable in _extract_resources_from_module(mod):
-            app_state = result.setdefault(injectable.app,
-                                          {"shared_resources": set(),
-                                           "service_resources": {}})
+            app_state = result.setdefault(injectable.app, {
+                "shared_resources": set(),
+                "service_resources": {}
+            })
             if injectable.service is None:
                 app_state["shared_resources"].add(injectable)
             else:
@@ -172,11 +179,12 @@ def _extract_resources_from_module(mod):
             print("SKIP: no metadata")
             continue
 
-        yield Injectable(resource_type=tf_data['type'],
-                         app=raw_metadata.get('app', 'default'),
-                         service=raw_metadata.get('service'),
-                         resource_name=raw_metadata['resource_name'],
-                         config=_RESOURCE_FACTORIES[tf_data['type']](primary))
+        yield Injectable(
+            resource_type=tf_data['type'],
+            app=raw_metadata.get('app', 'default'),
+            service=raw_metadata.get('service'),
+            resource_name=raw_metadata['resource_name'],
+            config=_RESOURCE_FACTORIES[tf_data['type']](primary))
 
 
 def _extract_tags(attributes):
