@@ -5,7 +5,7 @@ TODO: assumes local-only!
 
 from pyrsistent import pset
 
-from ..kubernetes import envfile_to_k8s
+from ..kubernetes import envfile_to_k8s, Minikube
 from .. import kubernetes as k8s
 from ..envfile import (System, DockerImage, Application, DockerResource,
                        RequiredResource, Expose, Service, LocalDeployment)
@@ -27,16 +27,16 @@ def test_envfile_to_k8s_service():
     """Each Envfile service gets a k8s Service, Deployment and Ingress."""
     expected_deployment = SIMPLE_K8S_DEPLOYMENT
     expected_service = k8s.InternalService(deployment=expected_deployment)
-    assert envfile_to_k8s(SIMPLE_SYSTEM) == pset([
+    assert envfile_to_k8s(SIMPLE_SYSTEM, Minikube(SIMPLE_SYSTEM)) == pset([
         expected_deployment, expected_service, k8s.Ingress(
             exposed_path="/abc", backend_service=expected_service)
     ])
 
 
-def test_envfile_to_k8s_private_resource():
+def test_envfile_to_k8s_private_resource_minikube():
     """
     Each private Envfile resource gets a k8s Service, Deployment and
-    InternalRequiresConfigMap.
+    InternalRequiresConfigMap in Minikube mode.
     """
     system = SIMPLE_SYSTEM.transform(
         ["application", "services", "myservice", "requires", "myresource"],
@@ -60,7 +60,7 @@ def test_envfile_to_k8s_private_resource():
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
         ["address_configmaps"], {expected_addrconfigmap})
     expected_service = k8s.InternalService(deployment=expected_deployment)
-    assert envfile_to_k8s(system) == pset([
+    assert envfile_to_k8s(system, Minikube(system)) == pset([
         expected_deployment,
         expected_service,
         k8s.Ingress(
@@ -71,10 +71,10 @@ def test_envfile_to_k8s_private_resource():
     ])
 
 
-def test_envfile_to_k8s_shared_resource():
+def test_envfile_to_k8s_shared_resource_minikube():
     """
     Each shared Envfile resource gets a single k8s Service, Deployment and
-    InternalRequiresConfigMap.
+    InternalRequiresConfigMap in Minikubemode.
     """
     system = SIMPLE_SYSTEM.transform(
         ["application", "requires", "myresource"],
@@ -94,7 +94,7 @@ def test_envfile_to_k8s_shared_resource():
     expected_deployment = SIMPLE_K8S_DEPLOYMENT.transform(
         ["address_configmaps"], {expected_addrconfigmap})
     expected_service = k8s.InternalService(deployment=expected_deployment)
-    assert envfile_to_k8s(system) == pset([
+    assert envfile_to_k8s(system, Minikube(system)) == pset([
         expected_deployment,
         expected_service,
         k8s.Ingress(
@@ -105,7 +105,7 @@ def test_envfile_to_k8s_shared_resource():
     ])
 
 
-def test_envfile_k8s_shared_resource_once():
+def test_envfile_k8s_shared_resource_once_minikube():
     """
     Envfile shared resources only appear once even if there are multiple
     services.
@@ -134,14 +134,14 @@ def test_envfile_k8s_shared_resource_once():
             "database": DockerResource(
                 name="database", image="postgres:9.3", config=dict(port=3535))
         }))
-    k8s_objects = envfile_to_k8s(system)
+    k8s_objects = envfile_to_k8s(system, Minikube(system))
     assert len([
         o for o in k8s_objects
         if isinstance(o, k8s.Deployment) and "myresource" in o.name
     ]) == 1
 
 
-def test_envfile_k8s_private_resource_is_private():
+def test_envfile_k8s_private_resource_is_private_minikube():
     """
     Envfile private resources for different services but with same name don't
     have same k8s name.
@@ -173,7 +173,7 @@ def test_envfile_k8s_private_resource_is_private():
             "database": DockerResource(
                 name="database", image="postgres:9.3", config=dict(port=3535))
         }))
-    k8s_objects = envfile_to_k8s(system)
+    k8s_objects = envfile_to_k8s(system, Minikube(system))
     assert {
         o.name
         for o in k8s_objects

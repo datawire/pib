@@ -6,7 +6,8 @@ import boto3
 import botocore
 from pyrsistent import PClass, pmap_field, pset_field, field, PSet, freeze
 
-from .kubernetes import ExternalRequiresConfigMap
+from .kubernetes import (ExternalRequiresConfigMap, IBuildKubernetesConfigs,
+                         resource_configmap_k8s_name)
 
 
 __all__ = ["S3State", "Injectable", "ApplicationState", "ExtractedState",
@@ -63,10 +64,7 @@ class Injectable(PClass):
     config = pmap_field(str, str)
 
     def render(self):
-        name = self.resource_name
-        # TODO: this duplicates naming logic in kubernetes.py:
-        if self.service is not None:
-            name = self.service + "---" + name
+        name = resource_configmap_k8s_name(self.service, self.resource_name)
         return ExternalRequiresConfigMap(
             name=name, resource_name=self.resource_name, data=self.config)
 
@@ -85,11 +83,18 @@ def _create_aws_database_resource(tf_data):
             'PASSWORD': tf_data['attributes']['password']}
 
 
-class ApplicationState(PClass):
+class ApplicationState(PClass, IBuildKubernetesConfigs):
     """Per-application injectable state."""
     shared_resources = pset_field(Injectable)
     # map service name -> set of Injectables
     service_resources = pmap_field(str, PSet)
+
+    def get_all(self):
+        return set(i.render() for i in sum(
+            self.service_resources.values(), self.shared_resources))
+
+    def configmaps_for_service(self, service_name):
+        return set(i.render() for i in self.service_resources[service_name])
 
 
 class ExtractedState(PClass):

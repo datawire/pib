@@ -26,7 +26,18 @@ def _render_configmap(name, data):
     }
 
 
-class ExternalRequiresConfigMap(PClass):
+class IRenderToKubernetes(object):
+    """This object can be rendered to a Kubernetes configuration object."""
+
+    def render(self, options):
+        """Render to k8s config object.
+
+        :param options RenderingOptions: how to render.
+        :return: Python dict that can be serialized to JSON/YAML.
+        """
+
+
+class ExternalRequiresConfigMap(PClass, IRenderToKubernetes):
     """
     Kubernetes ConfigMap pointing an external resource (e.g. AWS RDS) for a
     specific required resource.
@@ -45,7 +56,7 @@ class ExternalRequiresConfigMap(PClass):
         return _render_configmap(self.name, thaw(self.data))
 
 
-class InternalRequiresConfigMap(PClass):
+class InternalRequiresConfigMap(PClass, IRenderToKubernetes):
     """
     Kubernetes ConfigMap representation pointing at an InternalService used for
     a resource.
@@ -70,7 +81,7 @@ class InternalRequiresConfigMap(PClass):
                                  thaw(self.get_full_data()))
 
 
-class Deployment(PClass):
+class Deployment(PClass, IRenderToKubernetes):
     """Kubernetes Deployment represenation."""
     name = field(mandatory=True, type=str)
     docker_image = field(mandatory=True, type=str)
@@ -140,7 +151,7 @@ class Deployment(PClass):
         return result
 
 
-class InternalService(PClass):
+class InternalService(PClass, IRenderToKubernetes):
     """Kubernetes Service represenation.
 
     This can represent either an envfile service or an envfile resource.
@@ -166,7 +177,7 @@ class InternalService(PClass):
         }
 
 
-class Ingress(PClass):
+class Ingress(PClass, IRenderToKubernetes):
     """Kubernetes Ingress representation."""
     exposed_path = field(mandatory=True, type=str)
     backend_service = field(mandatory=True, type=InternalService)
@@ -196,19 +207,46 @@ class Ingress(PClass):
         }
 
 
-def envfile_to_k8s(envfile):
-    """Convert a loaded Envfile.yaml into Kubernetes objects.
+class IBuildKubernetesConfigs(object):
+    """Construct Kubernetes configurations."""
 
-    :param envfile System: Envfile to convert.
-    :return: `PSet` of K8s objects.
+    def get_all(self):
+        """Get all Kubernetes configs.
+
+        :return: set of ``IRenderToKubernetes``.
+        """
+
+    def configmaps_for_service(self, service_name):
+        """
+        Return the ConfigMaps for the given service.
+
+        :param service_name str: The name of the service.
+        :return: set of ``ExternalRequiresConfigMap`` and
+            ``InternalRequiresConfigMap`` objects.
+        """
+
+
+def resource_configmap_k8s_name(service_name, resource_name):
     """
-    result = set()
-    shared_addressconfigmaps = set()
+    Get the k8s name for the ConfigMap for a resource.
 
-    def require_to_k8s(requirement, prefix):
+    :param service_name: The name of the service, or None if this is shared
+        resource.
+    :param resource_name str: The resource name.
+    """
+    if service_name is None:
+        return resource_name
+    # Private resources should be namespaced based on the service
+    # they're part of, so they get prefix with service name:
+    return "{}---{}".format(service_name, resource_name)
+
+
+class Minikube(IBuildKubernetesConfigs):
+    """Generate k8s configs for local (minikube) deploys."""
+    def _require_to_k8s(self, envfile, requirement, service_name):
         resource = envfile.local.templates[requirement.template]
         deployment = Deployment(
-            name=prefix + requirement.name,
+            name=resource_configmap_k8s_name(service_name, requirement.name),
             docker_image=resource.image,
             port=resource.config["port"])
         k8s_service = InternalService(deployment=deployment)
@@ -218,33 +256,53 @@ def envfile_to_k8s(envfile):
             data=resource.config.remove("port"))
         return deployment, k8s_service, addrconfigmap
 
-    # Shared resources are shared, so no prefix:
-    for shared_require in envfile.application.requires.values():
-        new_objs = require_to_k8s(shared_require, prefix="")
-        result |= set(new_objs)
-        shared_addressconfigmaps.add(new_objs[-1])
+    def __init__(self, envfile):
+        self._all = set()
+        self._shared_addressconfigmaps = set()
+        self._private_addressconfigmaps = {}
 
-    k8s_services = {}
+        # Shared resources are shared, so no prefix:
+        for shared_require in envfile.application.requires.values():
+            new_objs = self._require_to_k8s(envfile, shared_require, None)
+            self._all |= set(new_objs)
+            self._shared_addressconfigmaps.add(new_objs[-1])
+
+        for service in envfile.application.services.values():
+            self._private_addressconfigmaps[service.name] = set()
+            for private_require in service.requires.values():
+                new_objs = self._require_to_k8s(envfile, private_require,
+                                                service.name)
+                self._all |= set(new_objs)
+                self._private_addressconfigmaps[service.name].add(new_objs[-1])
+
+    def get_all(self):
+        return self._all
+
+    def configmaps_for_service(self, service_name):
+        return (self._shared_addressconfigmaps |
+                self._private_addressconfigmaps[service_name])
+
+
+def envfile_to_k8s(envfile, build_configs):
+    """Convert a loaded Envfile.yaml into Kubernetes objects.
+
+    :param envfile System: Envfile to convert.
+    :param build_configs IBuildKubernetesConfigs: Additional configs.
+
+    :return: `PSet` of K8s objects.
+    """
+    result = set()
+
     for service in envfile.application.services.values():
-        # Private resources should be namespaced based on the service they're
-        # part of, so they get prefix with service name:
-        resource_prefix = "{}---".format(service.name)
-        private_addressconfigmaps = set()
-        for private_require in service.requires.values():
-            new_objs = require_to_k8s(private_require, prefix=resource_prefix)
-            result |= set(new_objs)
-            private_addressconfigmaps.add(new_objs[-1])
-
         deployment = Deployment(
             name=service.name,
             docker_image=service.image.image_name,
             port=service.port,
-            address_configmaps=shared_addressconfigmaps |
-            private_addressconfigmaps)
+            address_configmaps=build_configs.configmaps_for_service(
+                service.name))
         k8s_service = InternalService(deployment=deployment)
-        k8s_services[service.name] = k8s_service
         ingress = Ingress(
             exposed_path=service.expose.path, backend_service=k8s_service)
         result |= {deployment, k8s_service, ingress}
 
-    return pset(result)
+    return pset(result | build_configs.get_all())
