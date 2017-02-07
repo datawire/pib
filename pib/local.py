@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from time import sleep, time
 
-from .kubernetes import envfile_to_k8s, RenderingOptions
+from .kubernetes import envfile_to_k8s, RenderingOptions, Minikube
 from .kubectl import Kubectl
 from .subprocesses import Runner
 
@@ -117,7 +117,7 @@ class RunLocal(object):
         options = RenderingOptions(tag_overrides=tag_overrides,
                                    # Make services publicly available:
                                    private_service_type="NodePort")
-        for k8s_config in envfile_to_k8s(envfile):
+        for k8s_config in envfile_to_k8s(envfile, Minikube(envfile)):
             self._kubectl.apply_config(k8s_config.render(options))
 
     def get_application_urls(self, envfile):
