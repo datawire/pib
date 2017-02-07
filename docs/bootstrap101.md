@@ -1,6 +1,11 @@
 # Bootstrapping 101
 
-**WIP**
+## Prequisites
+
+1. Familiarity with [Git](https://git-scm.com/), [GitHub](https://github.com/), and how [Git branches work](https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging).
+2. How to use [Travis-CI](https://travis-ci.org/).
+3. How to use [Terraform](https://www.terraform.io/docs/index.html) at a basic level to perform infrastructure provisioning.
+4. Access to or the ability to get AWS IAM credentials with superuser capabilities.
 
 ## Environment Setup
 
