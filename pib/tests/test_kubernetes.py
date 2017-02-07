@@ -312,13 +312,14 @@ def test_render_internalservice():
     """An InternalService renders to a k8s Service."""
     deployment_rendered = SIMPLE_K8S_DEPLOYMENT.render(k8s.RenderingOptions())
     rendered = k8s.InternalService(
-        deployment=SIMPLE_K8S_DEPLOYMENT).render(k8s.RenderingOptions())
+        deployment=SIMPLE_K8S_DEPLOYMENT).render(k8s.RenderingOptions(
+            private_service_type="FakeServiceType"))
     assert len(rendered) == 4
     assert rendered["apiVersion"] == "v1"
     assert rendered["kind"] == "Service"
     assert rendered["metadata"] == deployment_rendered["metadata"]
     expected_spec = {
-        "type": "NodePort",  # TODO: only for local minikube setup!
+        "type": "FakeServiceType",  # taken from RenderingOptions
         "ports": [{
             "port": 1234,
             "targetPort": 1234,

@@ -114,7 +114,9 @@ class RunLocal(object):
     def deploy(self, envfile, tag_overrides={}):
         """Deploy current configuration to the minikube server."""
         # TODO: missing ability to remove previous iteration of k8s objects!
-        options = RenderingOptions(tag_overrides=tag_overrides)
+        options = RenderingOptions(tag_overrides=tag_overrides,
+                                   # Make services publicly available:
+                                   private_service_type="NodePort")
         for k8s_config in envfile_to_k8s(envfile):
             self._kubectl.apply_config(k8s_config.render(options))
 

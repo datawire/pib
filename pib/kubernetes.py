@@ -5,8 +5,10 @@ from pyrsistent import PClass, field, pset_field, pset, pmap_field, thaw
 
 class RenderingOptions(PClass):
     """Define how objects should be rendered."""
-    tag_overrides = pmap_field(str, str)  # map service name to Docker image tag
-    # TODO: eventually ClusterIP vs NodePort can go here
+    # map service name to Docker image tag:
+    tag_overrides = pmap_field(str, str)
+    # typically "ClusterIP" or "NodePort":
+    private_service_type = field(str, initial="ClusterIP")
 
 
 def _render_configmap(name, data):
@@ -165,8 +167,7 @@ class InternalService(PClass, IRenderToKubernetes):
             "kind": "Service",
             "metadata": rendered_deployment["metadata"],
             "spec": {
-                # TODO: only for local minikube, elsewhere want ClusterIP:
-                "type": "NodePort",
+                "type": options.private_service_type,
                 "ports": [{
                     "port": self.deployment.port,
                     "targetPort": self.deployment.port,
