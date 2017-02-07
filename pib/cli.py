@@ -17,6 +17,7 @@ from yaml import safe_load
 from .local import RunLocal
 from .schema import ValidationError
 from .envfile import load_envfile as _load_envfile
+from .remote import RunRemote
 from . import __version__
 
 # Pacify Click:
@@ -24,25 +25,24 @@ if os.environ.get("LANG", None) is None:
     os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"
 
 
-def create_run_local(logfile_path):
+def open_logfile(logfile_path):
     """
-    :return: RunLocal instance for the given logfile path.
+    :return: File-like object for the given logfile path.
     """
     if logfile_path == "-":
-        logfile = stdout
+        return stdout
     else:
         # Wipe existing logfile, and use line buffering so data gets written
         # out immediately.
-        logfile = open(logfile_path, "w", buffering=1)
-    return RunLocal(logfile, click.echo)
+        return open(logfile_path, "w", buffering=1)
 
 
-def start(logfile_path):
+def start_local(logfile_path):
     """Download and start necessary tools.
 
     :return: RunLocal instance.
     """
-    run_local = create_run_local(logfile_path)
+    run_local = RunLocal(open_logfile(logfile_path), click.echo)
     run_local.ensure_requirements()
     run_local.start_minikube()
     run_local.set_minikube_docker_env()
@@ -187,7 +187,7 @@ def cli():
 def cli_source_deploy(logfile, directory, envfile):
     envfile = load_envfile(Path(envfile))
     directory = Path(directory)
-    run_local = start(logfile)
+    run_local = start_local(logfile)
     source_deploy(run_local, envfile, directory)
     print_service_url(run_local, envfile)
 
@@ -203,20 +203,25 @@ def cli_deploy():
 @handle_unexpected_errors
 def cli_deploy_local(logfile, envfile):
     envfile = load_envfile(Path(envfile))
-    run_local = start(logfile)
+    run_local = start_local(logfile)
     run_local.deploy(envfile)
     print_service_url(run_local, envfile)
 
 
-@cli_deploy.command("remote", help="Deploy tagged images remotely.")
+@cli_deploy.command("remote", help="""Deploy tagged images remotely.
+
+`kubectl` should be on $PATH, and AWS credentials should exist in ~/.aws for
+this to work properly.""")
 @opt_logfile
 @opt_envfile
 @handle_unexpected_errors
 def cli_deploy_remote(logfile, envfile):
     envfile = load_envfile(Path(envfile))
-    run_local = start(logfile)
-    run_local.deploy(envfile)
-    print_service_url(run_local, envfile)
+    if envfile.remote is None:
+        raise click.ClickException("Missing 'remote' section in Envfile.yaml.")
+    run_remote = RunRemote(open_logfile(logfile), click.echo)
+    run_remote.deploy(envfile)
+    click.echo("Deployment finished.")
 
 
 @cli.command(
@@ -229,7 +234,7 @@ def cli_deploy_remote(logfile, envfile):
 def cli_watch(logfile, directory, envfile):
     envfile = load_envfile(Path(envfile))
     directory = Path(directory)
-    run_local = start(logfile)
+    run_local = start_local(logfile)
     source_deploy(run_local, envfile, directory)
     print_service_url(run_local, envfile)
     watch(run_local, envfile, directory)
@@ -243,7 +248,7 @@ def cli_watch(logfile, directory, envfile):
                            'started by pib.')
 @handle_unexpected_errors
 def cli_wipe(logfile):
-    run_local = start(logfile)
+    run_local = start_local(logfile)
     run_local.wipe()
     click.echo("Wiped!")
 
