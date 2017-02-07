@@ -20,6 +20,20 @@ definitions:
     additionalProperties: false
     required: ["templates"]
 
+  remote:
+    type: object
+    properties:
+      type:
+        type: string
+        enum: ["kubernetes"]
+      address:
+        type: string
+      state:
+        type: string
+        pattern: "^terraform:.*$"
+    additionalProperties: false
+    required: ["type", "address", "state"]
+
   docker-resource:
     type: object
     additionalProperties: false
@@ -89,9 +103,7 @@ properties:
   local:
     $ref: "#/definitions/local"
   remote:
-    additionalProperties:
-      # TODO: Make this enforce structure in later iteration
-      type: string
+    $ref: "#/definitions/remote"
   application:
     type: object
     properties:

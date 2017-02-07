@@ -6,7 +6,7 @@ from yaml import safe_load
 from ..schema import ValidationError
 from ..envfile import (load_envfile, System, LocalDeployment, DockerImage,
                        Application, DockerResource, RequiredResource, Expose,
-                       Service)
+                       Service, RemoteDeployment)
 
 
 def test_load_invalid_instance():
@@ -144,6 +144,8 @@ local:
 
 remote:
   type: kubernetes
+  address: k8s.example.com
+  state: terraform:s3://somewhere/somewhere
 
 application:
   requires:
@@ -187,7 +189,11 @@ def test_load_valid_instance():
                             name="hello-db", template="postgresql-v96")
                     })
             }),
-        remote={"type": "kubernetes"},
+        remote=RemoteDeployment(
+            type="kubernetes",
+            address="k8s.example.com",
+            state="terraform:s3://somewhere/somewhere",
+            ),
         local=LocalDeployment(templates={
             "redis-v3": DockerResource(
                 name="redis-v3", image="redis/redis:3", config={"port": 6379}),

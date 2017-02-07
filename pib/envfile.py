@@ -12,7 +12,7 @@ class DockerResource(PClass):
     :attr image: The Docker image to run.
     :attr config: Configuration parameters, typically will have "port" key.
     """
-    name = field(type=str)
+    name = field(mandatory=True, type=str)
     image = field(mandatory=True, type=str)
     config = pmap_field(str, (int, str))
 
@@ -20,6 +20,13 @@ class DockerResource(PClass):
 class LocalDeployment(PClass):
     """Runs services and resources on Minikube."""
     templates = pmap_field(str, DockerResource)
+
+
+class RemoteDeployment(PClass):
+    """Runs services and resources on a remote cluster."""
+    type = field(mandatory=True, type=str)  # for now only "kubernetes"
+    address = field(mandatory=True, type=str)  # k8s context
+    state = field(mandatory=True, type=str)  # where to find resources' state
 
 
 class RequiredResource(PClass):
@@ -64,7 +71,9 @@ class System(PClass):
     """A System loaded from an Envfile.yaml."""
     local = field(
         mandatory=True, type=LocalDeployment, initial=LocalDeployment())
-    remote = pmap_field(str, str)  # TODO: define structure
+    remote = field(
+        mandatory=True, type=(RemoteDeployment, type(None)), initial=None,
+        factory=lambda d: None if d is None else RemoteDeployment.create(d))
     application = field(mandatory=True, type=Application)
 
 
