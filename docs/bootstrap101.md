@@ -7,6 +7,10 @@
 3. How to use [Terraform](https://www.terraform.io/docs/index.html) at a basic level to perform infrastructure provisioning.
 4. Access to or the ability to get AWS IAM credentials with superuser capabilities.
 
+## Overview
+
+Pib manages an environment via Git branches; a single git branch in the format `env/$name` maps to a Pib-managed environment. An instantiated environment in Pib is a composition of AWS VPC, Kubernetes cluster, and associated infrastructure components provided by AWS such as an RDS PostgreSQL instance.
+
 ## Environment Setup
 
 The process to setup an environment involves laying down a basic AWS networking fabric and then creating a Kubernetes cluster in that networking environment. Pib works by reacting to changes in a GitHub repository so the first step before we do anything is to setup Git and GitHub.
